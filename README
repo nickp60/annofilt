@@ -1,0 +1,4 @@
+Rscript ../riboSeed/scripts/getCompleteGenomeSubset.R /home/nicholas/GitHub/riboSeed/manuscript_results/entropy/assembly_summary.txt ./colis/ Escherichia coli
+gunzip ./colis/genomes/*
+counter=0; for i in *.fna; do prokka --outdir ./13 --prefix coli13 --compliant --genus Escherichia --species coli --cpus 4 GCA_001660585.1_ASM166058v1_genomic.fna; counter=14; done 
+I got bored after 11 genomes.  thats enough for a pangenome?  right? right? why are you shaking your head
