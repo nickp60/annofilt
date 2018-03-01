@@ -36,8 +36,10 @@ def get_args():
         "returning a assembly  with genes that meet a set of criteria. ",
         add_help=False)
     parser.add_argument(
-        "ref_gb",
-        help="path to .gb or .gbk Genbank genome file")
+        "reference",
+        help="path to an fasta (either protein or nucleotide) " +
+        "containing al the genes in the  genome;  for instance, " +
+        "the pan_genome_reference.fa from roary")
     parser.add_argument(
         "prokka_dir",
         help="output dir from prokka ")
@@ -82,9 +84,10 @@ def get_args():
 
 
 def make_prot_prot_blast_cmds(
-        query_list, date, evalue, output, threads=1,
+        query_file, date, evalue, output, threads=1,
         reciprocal=False,subject_file=None, logger=None):
     """given a file, make a blast cmd, and return path to output csv
+    This should handle both protein and nucleotide references.
     """
     assert logger is not None, "must use logging"
     assert isinstance(threads, int), "threads must be integer"
@@ -92,25 +95,41 @@ def make_prot_prot_blast_cmds(
     db_dir = os.path.join(output,
                           os.path.splitext(os.path.basename(subject_file))[0])
     os.makedirs(db_dir, exist_ok=True)
-    protdb = os.path.join(db_dir,
+    subjectdb = os.path.join(db_dir,
                           os.path.splitext(os.path.basename(subject_file))[0])
-
-    setup_blast_db(input_file=subject_file,
-                   input_type="fasta",
-                   dbtype="prot",
-                   out=protdb, logger=logger)
+    first_record = SeqIO.parse(subject_file, "fasta").__next__()
+    subject_is_protein = False
+    print(first_record.__dict__)
+    if first_record.seq.alphabet == IUPAC.IUPACProtein():
+        subject_is_protein = True
+        setup_blast_db(input_file=subject_file,
+                       input_type="fasta",
+                       dbtype="prot",
+                       out=subjectdb, logger=logger)
+    else:
+        setup_blast_db(input_file=subject_file,
+                       input_type="fasta",
+                       dbtype="nucl",
+                       out=subjectdb, logger=logger)
     blast_cmds = []
     blast_outputs = []
     recip_blast_outputs = []
-    print(query_list)
-    for f in query_list:
+    print(query_file)
+    for f in [query_file]:
         # run forward, nuc aganst prot, blast
         output_path_tab = str(
             os.path.join(output, date) + "_simpleOrtho_results_" +
             os.path.basename(f) + "_vs_protdb.tab")
-        blast_cline = NcbiblastpCommandline(query=f,
-                                            db=protdb, evalue=evalue,
-                                            outfmt=6, out=output_path_tab)
+        if subject_is_protein:
+            blast_cline = NcbiblastpCommandline(
+                query=f,
+                db=subjectdb, evalue=evalue,
+                outfmt=6, out=output_path_tab)
+        else:
+            blast_cline = NcbitblastnCommandline(
+                query=f,
+                db=subjectdb, evalue=evalue,
+                outfmt=6, out=output_path_tab)
         add_params = " -num_threads {} -num_alignments 20".format(threads)
         blast_command = str(str(blast_cline) + add_params)
         blast_cmds.append(blast_command)
@@ -119,10 +138,18 @@ def make_prot_prot_blast_cmds(
         recip_output_path_tab = str(
             os.path.join(output, date) + "_simpleOrtho_results_" +
             "prot_vs_" + os.path.basename(f) + ".tab")
-        recip_blast_cline = NcbiblastpCommandline(query=subject_file,
-                                                   subject=f,
-                                                   evalue=evalue,
-                                                   outfmt=6, out=recip_output_path_tab)
+        if subject_is_protein:
+            recip_blast_cline = NcbiblastpCommandline(
+                query=subject_file,
+                subject=f,
+                evalue=evalue,
+                outfmt=6, out=recip_output_path_tab)
+        else:
+            recip_blast_cline = NcbiblastxCommandline(
+                query=subject_file,
+                subject=f,
+                evalue=evalue,
+                outfmt=6, out=recip_output_path_tab)
         recip_blast_command = str(str(recip_blast_cline) + add_params)
         if reciprocal:
             blast_cmds.append(recip_blast_command)
@@ -426,10 +453,10 @@ if __name__ == "__main__":
     query_gb = query_gb[0]
     commands, paths_to_outputs, paths_to_recip_outputs = \
         make_prot_prot_blast_cmds(
-            query_list=query_gb,
+            query_file=query_gb,
             evalue=args.min_evalue,
             reciprocal=args.reciprocal,
-            subject_file=args.ref_gb,
+            subject_file=args.reference,
             threads=args.threads,
             output=output_root, date=date,
             logger=logger)
@@ -474,7 +501,7 @@ if __name__ == "__main__":
     else:
         recip_resultsdf = None
     # go through the subject file to aretrieve the ideal lengths.
-    with open(args.ref_gb, "r") as inf:
+    with open(args.reference, "r") as inf:
         resultsdf["subject_length"] = 0
         for rec in SeqIO.parse(inf, "fasta"):
             resultsdf.ix[resultsdf.subject_id==rec.id, 'subject_length'] = len(rec.seq)
