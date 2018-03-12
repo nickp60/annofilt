@@ -184,7 +184,7 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
 
         for gene in unq_subject:
             for genome in unq_query:
-                logger.debug("Checking %s in %s for reciprocity" % (gene, genome))
+                logger.debug("scoring %s" % (gene))
                 tempdf1 = df1.loc[(df1["subject_id"] == gene) &
                               (df1["genome"] == genome), ]
                 # here we get the best hit (the one maximizing e value)
