@@ -262,29 +262,6 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     return(filtered)
 
 
-def write_pipe_extract_cmds(df, outfile, logger=None):
-    #% parse output
-    assert logger is not None, "must use a logger"
-    logger.debug("cleaning up the csv output")
-    with open(outfile, "a") as outf:
-        for index, row in df.iterrows():
-            if row['q_start'] > row['q_end']:
-                logger.debug("hit is on the (-) strand")
-                line = "{0}-RC@{1} :{2}:{3}".format(
-                    row['subject_id'],
-                    row['query_id'],
-                    int(row['q_end']),
-                    int(row['q_start']))
-            else:
-                line = "{0}@{1} :{2}:{3}".format(
-                    row['subject_id'],
-                    row['query_id'],
-                    int(row['q_start']),
-                    int(row['q_end']))
-            sys.stdout.write(line + "\n")
-            outf.write(line + "\n")
-
-
 def set_up_logging(verbosity, outfile, name):
     """
     Set up logging a la pyani, with
@@ -525,9 +502,6 @@ if __name__ == "__main__":
         new_genbank=os.path.splitext(query_gb)[0] + "_filtered.gbk",
         approved_accessions=filtered_hits["query_id"],
         logger=logger)
+    sys.stdout.write()
     filtered_hits.to_csv(
         os.path.join(output_root, "simpleOrtho_filtered_hits.csv"))
-    write_pipe_extract_cmds(
-        outfile=os.path.join(output_root,
-                             "simpleOrtho_regions.txt"),
-        df=filtered_hits, logger=logger)
