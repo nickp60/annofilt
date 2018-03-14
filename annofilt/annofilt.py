@@ -220,6 +220,10 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     df1['genome'] = df1.query_id.str.split('_').str.get(0)
     logger.debug(df1.shape)
 
+    # here we store the loci that fail filtering, so we can get the
+    # subest of loci to include later
+    bad_loci = []
+
     if reciprocal:
         logger.debug("shape of recip blast results")
         logger.debug(df2.shape)
@@ -243,17 +247,17 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
                     (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
                 logger.debug("grouped df shape: ")
                 logger.debug(tempdf1.shape)
-                print(tempdf1)
-                sys.exit()
                 if subset1.empty:
                     logger.info("No full hits for %s in %s", gene, genome)
                     logger.debug(tempdf1)
                     nonrecip_hits.append([gene, genome])
-                else:
-                    if all(subset1["alignment_length"] > subset1["subject_length"] * min_length_percent):
+                    bad_loci.append(gene)
+                elif all(subset1["alignment_length"] > subset1["subject_length"] * min_length_percent):
                         filtered = filtered.append(subset1)
+                else:
+                    bad_loci.append(gene)
             # logger.debug(subset.shape)
-        return(filtered)
+        return(filtered, bad_loci)
 
 
     # recip structure
@@ -288,6 +292,7 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
                     logger.debug(tempdf1)
                     logger.debug(tempdf2)
                     nonrecip_hits.append([gene, genome])
+                    bad_loci.append(gene)
                 else:
                     # logger.debug(tempdf1)
                     # logger.debug("tempdf2")
@@ -303,6 +308,7 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
                     else:
                         nonrecip_hits.append([gene, genome])
                         logger.info("No reciprocol hits for %s in %s", gene, genome)
+                        bad_loci.append(gene)
 
             # logger.debug(subset.shape)
     logger.debug("Non-reciprocal genes:")
@@ -311,7 +317,7 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     logger.debug(recip_hits)
     logger.debug("filtered shape:")
     logger.debug(filtered.shape)
-    return(filtered)
+    return(filtered, bad_loci)
 
 
 def set_up_logging(verbosity, outfile, name):
@@ -425,7 +431,7 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
                 else:
                     logger.info(feat.qualifiers.get("locus_tag")[0] +
                                 " was rejected")
-                newrecs.append(new_rec)
+                newrecs.append(newrec)
     with open(new_genbank, "w") as outf:
         for nr in newrecs:
             SeqIO.write(nr, outf, "genbank")
@@ -484,7 +490,7 @@ def main(args=None, logger=None):
                         # print(type(feat.qualifiers.get('translation')))
                         gene = feat.extract(rec)
                         gene.seq = gene.seq.translate()
-                        gene.id = feat.qualifier.get("locus_tag")[0]
+                        gene.id = feat.qualifiers.get("locus_tag")[0]
                         genepath = os.path.join(
                             genes_dirpath, gene.id + ".faa" )
                         SeqIO.write(gene, genepath, "fasta")
@@ -544,19 +550,9 @@ def main(args=None, logger=None):
         recip_resultsdf = BLAST_tab_to_df(post_recip_merged_tab)
     else:
         recip_resultsdf = None
-    # go through the subject file to aretrieve the ideal lengths.
-    # logger.debug("adding full gene lengths to
-    # with open(args.reference, "r") as inf:
-    #     resultsdf["subject_length"] = 0
-    #     for rec in SeqIO.parse(inf, "fasta"):
-    #         resultsdf.ix[resultsdf.subject_id==rec.id, 'subject_length'] = len(rec.seq)
-    # sanity check that this worked
-    # if any(resultsdf["subject_length"] == 0):
-    #     raise ValueError(
-    #         "error matching blast gene names to those parsed by " +
-    #         "BioPython!  Until this is sorted, we wont be able to " +
-    #         "match up the total expected gene length. Exiting")
-    filtered_hits = filter_BLAST_df(
+
+
+    filtered_hits, bad_loci = filter_BLAST_df(
         df1=resultsdf,
         df2=recip_resultsdf,
         reciprocal=args.reciprocal,
@@ -564,16 +560,20 @@ def main(args=None, logger=None):
         min_length_percent=args.min_length,
         logger=logger)
     print(filtered_hits)
+
+    good_loci = [x for x in all_loci if x not in bad_loci]
     make_new_genbank(
         genbank=prokka_files.gbk,
         new_genbank=os.path.join(
             output_root,
             os.path.basename(os.path.splitext(prokka_files.faa)[0]) + "_filtered.gbk"),
-        approved_accessions=filtered_hits["query_id"],
+        approved_accessions=good_loci,
         logger=logger)
-    sys.stdout.write("")
-    filtered_hits.to_csv(
-        os.path.join(output_root, "simpleOrtho_filtered_hits.csv"))
+    sys.stdout.write("Total loci\tLoci kept\tLoci lost\n")
+    sys.stdout.write("{0}\t{1}\t{2}\n".format(
+        len(all_loci), len(good_loci), len(bad_loci)))
+    filtered_hits.to_csv(os.path.join(output_root, "filtered_hits.csv"))
+
 
 
 if __name__ == "__main__":

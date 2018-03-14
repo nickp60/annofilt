@@ -59,14 +59,13 @@ class annofilt(unittest.TestCase):
         self.to_be_removed.append(dest)
 
     def test_filter_BLAST_df(self):
-        filtered_hits = af.filter_BLAST_df(
+        filtered_hits, bad_loci = af.filter_BLAST_df(
             df1=af.BLAST_tab_to_df(self.merged_tab),
             df2="notafile",
             reciprocal=False,
             min_percent=.75,
             min_length_percent=.75,
             logger=logger)
-        print(filtered_hits)
 
 
     def test_return_list_of_locus_tags_gbk(self):
