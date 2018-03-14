@@ -17,6 +17,7 @@ import pandas as pd
 import multiprocessing
 import copy
 
+from argparse import Namespace
 from Bio import SeqIO
 from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
@@ -46,8 +47,13 @@ def get_args():
     parser.add_argument(
         "-o",
         "--output",
-        help="output dir ")
+        help="output dir", required=True)
     optional = parser.add_argument_group('optional arguments')
+    optional.add_argument(
+        "--full", dest="full",
+        action="store_true",
+        help="check ALL genes for completeness, not just on ends of contigs." +
+        " This is much slower.")
     optional.add_argument(
         "-r"
         "--reciprocal", dest="reciprocal",
@@ -83,7 +89,24 @@ def get_args():
     return args
 
 
-def make_prot_prot_blast_cmds(
+def make_prokka_files_object(prokka_dir):
+    """
+    """
+    checked = []
+    for ext in ["faa", "gbk", "gff"]:
+        files = glob.glob(prokka_dir + "*" + ext)
+        if len(files) is None:
+            raise ValueError("No " + ext + " file found in prokka dir!")
+        if len(files) > 1:
+            raise ValueError(
+                "Multiple " + ext + " files found in prokka ouput!")
+        checked.append(files[0])
+    return Namespace(faa=checked[0],
+                     gbk=checked[1],
+                     gff=checked[2])
+
+
+def make_full_prot_prot_blast_cmds(
         query_file, date, evalue, output, threads=1,
         reciprocal=False,subject_file=None, logger=None):
     """given a file, make a blast cmd, and return path to output csv
@@ -169,11 +192,10 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     df1['genome'] = df1.query_id.str.split('_').str.get(0)
     logger.debug(df1.shape)
 
-    if args.reciprocal:
+    if reciprocal:
         logger.debug("shape of recip blast results")
         logger.debug(df2.shape)
         df2['genome'] = df2.subject_id.str.split('_').str.get(0)
-
 
     if not reciprocal:
         filtered = pd.DataFrame(columns=df1.columns)
@@ -387,6 +409,7 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
         for nr in newrecs:
             SeqIO.write(nr, outf, "genbank")
 
+
 if __name__ == "__main__":
     # get args
     args = get_args()
@@ -399,7 +422,6 @@ if __name__ == "__main__":
         sys.exit(1)
     logger = set_up_logging(outfile=os.path.join(output_root, "log.log"),
                             name="annofilt", verbosity=args.verbosity)
-    print(logger)
     # verify imputes
     # build temp blast DB from
     # Read in Genbank
@@ -422,27 +444,44 @@ if __name__ == "__main__":
         logger.debug("{0}: {1}".format(k, v))
     date = str(datetime.datetime.now().strftime('%Y%m%d'))
 
-    query_gb = glob.glob(args.prokka_dir + "*.faa")
-    if len(query_gb) is None:
-        raise ValueError("no .faa file found in prokka dir!")
-    if len(query_gb) > 1:
-        raise ValueError("Multiple AA fastas files found in prokka ouput!")
-    query_gb = query_gb[0]
-    commands, paths_to_outputs, paths_to_recip_outputs = \
-        make_prot_prot_blast_cmds(
-            query_file=query_gb,
-            evalue=args.min_evalue,
-            reciprocal=args.reciprocal,
-            subject_file=args.reference,
-            threads=args.threads,
-            output=output_root, date=date,
-            logger=logger)
+    prokka_files = make_prokka_files_object(args.prokka_dir)
+
+    if args.full:
+        # check all the genes for completeness
+        commands, paths_to_outputs, paths_to_recip_outputs = \
+            make_prot_prot_blast_cmds(
+                query_file=prokka_files.faa,
+                evalue=args.min_evalue,
+                reciprocal=args.reciprocal,
+                subject_file=args.reference,
+                threads=args.threads,
+                output=output_root, date=date,
+                logger=logger)
+    else:
+        # check only selected the genes for completeness
+        genes_dirpath = os.path.join(output_root, "query_genes")
+        os.makedirs(genes_dirpath)
+        with open(prokka_files.gbk, "r") as inf:
+            for rec in SeqIO.parse(inf, "genbank"):
+                nfeats = len(rec.features)
+                FIRST = True
+                for idx, feat in enumerate(rec.features):
+                    # if the first or last records
+                    if feat.type != "CDS":
+                        continue
+                    if FIRST or idx == nfeats:
+                        # print(type(feat.qualifiers.get('translation')))
+                        gene = feat.extract(rec)
+                        gene.seq = gene.seq.translate()
+                        print(gene)
+                        genepath = os.path.join(
+                            genes_dirpath, rec.id + "_" + str(idx))
+                        SeqIO.write(gene, genepath, "fasta")
+    sys.exit()
     logger.debug("cmds:" )
     logger.debug(commands)
     logger.debug("paths to outputs:" )
     logger.debug(paths_to_outputs )
-    logger.debug("paths to recip outputs:" )
-    logger.debug(paths_to_recip_outputs )
     # check for existing blast results
 
     if not all([os.path.isfile(x) for x in paths_to_outputs]):
@@ -469,9 +508,12 @@ if __name__ == "__main__":
     recip_merged_tab = os.path.join(output_root,
                                     "recip_merged_results.tab")
     post_merged_tab = merge_outfiles(filelist=paths_to_outputs,
-                                            outfile_name=merged_tab)
+                                     outfile_name=merged_tab)
     resultsdf = BLAST_tab_to_df(post_merged_tab)
+
     if args.reciprocal:
+        logger.debug("paths to recip outputs:" )
+        logger.debug(paths_to_recip_outputs )
         recip_resultsdf = BLAST_tab_to_df(post_recip_merged_tab)
         post_recip_merged_tab = merge_outfiles(filelist=paths_to_recip_outputs,
                                                outfile_name=recip_merged_tab)
@@ -498,10 +540,10 @@ if __name__ == "__main__":
         logger=logger)
     print(filtered_hits)
     make_new_genbank(
-        genbank=query_gb,
-        new_genbank=os.path.splitext(query_gb)[0] + "_filtered.gbk",
+        genbank=prokka_files.gbk,
+        new_genbank=os.path.splitext(query_faa)[0] + "_filtered.gbk",
         approved_accessions=filtered_hits["query_id"],
         logger=logger)
-    sys.stdout.write()
+    sys.stdout.write("")
     filtered_hits.to_csv(
         os.path.join(output_root, "simpleOrtho_filtered_hits.csv"))
