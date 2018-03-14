@@ -1,0 +1,8 @@
+*.DS_Store
+*~
+*__pychache__*
+*__pychache__
+*__pycache__
+*egg-info
+annofilt_test_data_archive.tar.gz
+annofilt_test_data_archive

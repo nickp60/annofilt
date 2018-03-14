@@ -106,6 +106,27 @@ def make_prokka_files_object(prokka_dir):
                      gff=checked[2])
 
 
+def return_list_of_locus_tags(gbk=None, faa=None):
+    lt_list = []
+    if gbk is not None:
+        with open(gbk, "r") as inf:
+            for rec in SeqIO.parse(inf, "genbank"):
+                for feat in rec.features:
+                    lt = feat.qualifiers.get("locus_tag")
+                    if lt is not None:
+                        # I dont know why locus tags are stored as lists;
+                        # never seen one with more than one
+                        lt_list.append(lt[0])
+    else:
+        assert faa is not None, "must submit either a genbank or AA fasta"
+        with open(faa, "r") as inf:
+            for rec in SeqIO.parse(inf, "fasta"):
+                lt_list.append(rec.id)
+    # we return a list after getting the unique entries, as there is
+    # usually a CDS and gene/tRNA/rRNA entry for each thing
+    return list(set(lt_list))
+
+
 def make_prot_prot_blast_cmds(
         query_file, date, evalue, output, threads=1,
         reciprocal=False,subject_file=None, logger=None):
@@ -206,8 +227,6 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
 
     if not reciprocal:
         filtered = pd.DataFrame(columns=df1.columns)
-        print(filtered)
-        sys.exit()
         unq_subject = df1.subject_id.unique()
         unq_query = df1.genome.unique()
         recip_hits = []
@@ -224,6 +243,8 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
                     (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
                 logger.debug("grouped df shape: ")
                 logger.debug(tempdf1.shape)
+                print(tempdf1)
+                sys.exit()
                 if subset1.empty:
                     logger.info("No full hits for %s in %s", gene, genome)
                     logger.debug(tempdf1)
@@ -374,26 +395,7 @@ def merge_outfiles(filelist, outfile_name):
             with open(f, "r") as inf:
                 for line in inf:
                     outf.write(line)
-
-    # if len(filelist) == 1:
-    #     # print("only one file found! no merging needed")
-    #     return(filelist[0])
-    # else:
-    #     # print("merging all the blast results to %s" % outfile_name)
-    #     nfiles = len(filelist)
-    #     print("merging %d files" % nfiles)
-    #     fout =
-    #     # first file:
-    #     for line in open(filelist[0]):
-    #         fout.write(line)
-    #     #  now the rest:
-    #     for num in range(1, nfiles):
-    #         f = open(filelist[num])
-    #         for line in f:
-    #             fout.write(line)
-    #         f.close()  # not really needed
-    #     fout.close()
-    return(outfile_name)
+    return outfile_name
 
 
 def BLAST_tab_to_df(path):
@@ -443,23 +445,6 @@ def main(args=None, logger=None):
     if logger is None:
         logger = set_up_logging(outfile=os.path.join(output_root, "log.log"),
                             name="annofilt", verbosity=args.verbosity)
-    # verify imputes
-    # build temp blast DB from
-    # Read in Genbank
-    # for each gene:
-    #     blast agianst the database
-    #     if no match:
-    #         if args.keep_nohits:
-    #             keep Annotation
-    #         else:
-    #             ditch that annotation
-    #     if the best match passes thresholds:
-    #         keep Annotation
-    #     else:
-    #         ditch that annotation
-    # logging.basicConfig(stream=sys.stderr, level=logging.DEBUG,
-    #                     format='%(name)s (%(levelname)s): %(message)s')
-    # logger.setLevel(logging.DEBUG)
     logger.debug("All settings used:")
     for k, v in sorted(vars(args).items()):
         logger.debug("{0}: {1}".format(k, v))
@@ -468,6 +453,7 @@ def main(args=None, logger=None):
     prokka_files = make_prokka_files_object(args.prokka_dir)
 
     if args.full:
+        all_loci = return_list_of_locus_tags(faa=prokka_files.faa)
         # check all the genes for completeness
         commands, paths_to_outputs, paths_to_recip_outputs = \
             make_prot_prot_blast_cmds(
@@ -480,9 +466,11 @@ def main(args=None, logger=None):
                 logger=logger)
     else:
         # check only selected the genes for completeness
+        all_loci = return_list_of_locus_tags(faa=prokka_files.gbk)
         genes_dirpath = os.path.join(output_root, "query_genes")
         gene_queries = []
         os.makedirs(genes_dirpath)
+        # for each record, get the first and the last feature that isnt a "source"
         with open(prokka_files.gbk, "r") as inf:
             for rec in SeqIO.parse(inf, "genbank"):
                 nfeats = len(rec.features)
@@ -496,7 +484,7 @@ def main(args=None, logger=None):
                         # print(type(feat.qualifiers.get('translation')))
                         gene = feat.extract(rec)
                         gene.seq = gene.seq.translate()
-                        gene.id = rec.id + "_" + str(idx)
+                        gene.id = feat.qualifier.get("locus_tag")[0]
                         genepath = os.path.join(
                             genes_dirpath, gene.id + ".faa" )
                         SeqIO.write(gene, genepath, "fasta")

@@ -24,13 +24,15 @@ class annofilt(unittest.TestCase):
         self.merged_tab = os.path.join(self.data_dir,
                                      "merged_results.tab")
         self.ref_gb = os.path.join(os.path.dirname(__file__),
-                                   "test_data", "NC_011751.1.gb")
+                                   "testdata", "PROKKA.gbk")
+        self.ref_faa = os.path.join(os.path.dirname(__file__),
+                                   "testdata", "PROKKA.faa")
         self.to_be_removed = []
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir, exist_ok=True)
         self.startTime = time.time()
 
-    def tetloop_through_genbank(self):
+    def tet_loop_through_genbank(self):
         """ construct spades command that check for file presense
         this is useful when multiprocessing and unable to check before
         sending the command out
@@ -55,6 +57,37 @@ class annofilt(unittest.TestCase):
             af.BLAST_tab_to_df(dest).shape
             )
         self.to_be_removed.append(dest)
+
+    def test_filter_BLAST_df(self):
+        filtered_hits = af.filter_BLAST_df(
+            df1=af.BLAST_tab_to_df(self.merged_tab),
+            df2="notafile",
+            reciprocal=False,
+            min_percent=.75,
+            min_length_percent=.75,
+            logger=logger)
+        print(filtered_hits)
+
+
+    def test_return_list_of_locus_tags_gbk(self):
+        self.assertEqual(
+            len(af.return_list_of_locus_tags(gbk=self.ref_gb)),
+            89)
+
+    def test_return_list_of_locus_tags_faa(self):
+        self.assertEqual(
+            len(af.return_list_of_locus_tags(faa=self.ref_faa)),
+            65)
+
+    def test_return_list_of_locus_tags_both(self):
+        """ we know this fails;
+        the faa file only has proteins, while the gbk file has all annotations
+        """
+        gbkl = af.return_list_of_locus_tags(gbk=self.ref_gb)
+        faal = af.return_list_of_locus_tags(faa=self.ref_faa)
+        for i in range(89):
+            self.assertEqual(gbkl[i], faal[i])
+
 
     def tearDown(self):
         """ delete temp files if no errors
