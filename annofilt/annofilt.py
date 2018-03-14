@@ -79,12 +79,19 @@ def get_args():
         dest="threads",
         default=4,
         help="number of threads to use")
-    optional.add_argument("-v", "--verbosity",
-                        dest='verbosity', action="store",
-                        default=2, type=int,
-                        help="1 = debug(), 2 = info(), 3 = warning(), " +
-                        "4 = error() and 5 = critical(); " +
-                        "default: %(default)s")
+    optional.add_argument(
+        "--genes", dest="just_genes",
+        action="store_true",
+        help="only deal with the genes; default is to deal with " +
+        "anything that has a locus tag")
+    optional.add_argument(
+        "-v", "--verbosity",
+        dest='verbosity', action="store",
+        default=2, type=int,
+        help="1 = debug(), 2 = info(), 3 = warning(), " +
+        "4 = error() and 5 = critical(); " +
+        "default: %(default)s")
+
     args = parser.parse_args()
     return args
 
@@ -162,7 +169,6 @@ def make_prot_prot_blast_cmds(
     blast_cmds = []
     blast_outputs = []
     recip_blast_outputs = []
-    print(query_file)
     for f in [query_file]:
         qname = os.path.splitext(os.path.basename(f))[0]
         # run forward, nuc aganst prot, blast
@@ -232,31 +238,27 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     if not reciprocal:
         filtered = pd.DataFrame(columns=df1.columns)
         unq_subject = df1.subject_id.unique()
-        unq_query = df1.genome.unique()
+        unq_query = df1.query_id.unique()
         recip_hits = []
         nonrecip_hits = []  # should be renamed to nogood_hits
-
-        for gene in unq_subject:
-            for genome in unq_query:
-                logger.debug("scoring %s" % (gene))
-                tempdf1 = df1.loc[(df1["subject_id"] == gene) &
-                              (df1["genome"] == genome), ]
-                # here we get the best hit (the one maximizing e value)
-                subset1 = tempdf1.loc[
-                    (tempdf1["identity_perc"] > min_percent) &
-                    (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
-                logger.debug("grouped df shape: ")
-                logger.debug(tempdf1.shape)
-                if subset1.empty:
-                    logger.info("No full hits for %s in %s", gene, genome)
-                    logger.debug(tempdf1)
-                    nonrecip_hits.append([gene, genome])
-                    bad_loci.append(gene)
-                elif all(subset1["alignment_length"] > subset1["subject_length"] * min_length_percent):
-                        filtered = filtered.append(subset1)
-                else:
-                    bad_loci.append(gene)
-            # logger.debug(subset.shape)
+        for gene in unq_query:
+            logger.debug("scoring %s" % (gene))
+            tempdf1 = df1.loc[(df1["query_id"] == gene), ]
+            # here we get the best hit (the one maximizing e value)
+            subset1 = tempdf1.loc[
+                (tempdf1["identity_perc"] > min_percent) &
+                (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
+            logger.debug("grouped df shape: ")
+            logger.debug(tempdf1.shape)
+            if subset1.empty:
+                logger.info("No full hits for %s in %s", gene, genome)
+                logger.debug(tempdf1)
+                nonrecip_hits.append([gene, genome])
+                bad_loci.append(gene)
+            elif all(subset1["alignment_length"] > subset1["subject_length"] * min_length_percent):
+                filtered = filtered.append(subset1)
+            else:
+                bad_loci.append(gene)
         return(filtered, bad_loci)
 
 
@@ -395,7 +397,6 @@ def merge_outfiles(filelist, outfile_name):
     """  merge the output from multiple BLAST runs of type 6 output (no headers)
     """
     # only grab .tab files, ie, the blast output
-    print(len(filelist))
     with open(outfile_name, "a") as outf:
         for idx, f in enumerate(filelist):
             with open(f, "r") as inf:
@@ -458,57 +459,57 @@ def main(args=None, logger=None):
 
     prokka_files = make_prokka_files_object(args.prokka_dir)
 
-    if args.full:
-        all_loci = return_list_of_locus_tags(faa=prokka_files.faa)
-        # check all the genes for completeness
-        commands, paths_to_outputs, paths_to_recip_outputs = \
+    # if args.full:
+    #     all_loci = return_list_of_locus_tags(faa=prokka_files.faa)
+    #     # check all the genes for completeness
+    #     commands, paths_to_outputs, paths_to_recip_outputs = \
+    #         make_prot_prot_blast_cmds(
+    #             query_file=prokka_files.faa,
+    #             evalue=args.min_evalue,
+    #             reciprocal=args.reciprocal,
+    #             subject_file=args.reference,
+    #             threads=args.threads,
+    #             output=output_root, date=date,
+    #             logger=logger)
+    # else:
+    # check only selected the genes for completeness
+    all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
+    genes_dirpath = os.path.join(output_root, "query_genes")
+    gene_queries = []
+    os.makedirs(genes_dirpath)
+    # for each record, get the first and the last feature that isnt a "source"
+    with open(prokka_files.gbk, "r") as inf:
+        for rec in SeqIO.parse(inf, "genbank"):
+            nfeats = len(rec.features)
+            FIRST = True
+            for idx, feat in enumerate(rec.features):
+                # if the first or last records
+                if feat.type == "source":
+                    continue
+                if (args.full or FIRST or idx == nfeats - 1):
+                    FIRST = False
+                    # print(type(feat.qualifiers.get('translation')))
+                    gene = feat.extract(rec)
+                    gene.seq = gene.seq.translate()
+                    gene.id = feat.qualifiers.get("locus_tag")[0]
+                    genepath = os.path.join(
+                        genes_dirpath, gene.id + ".faa" )
+                    SeqIO.write(gene, genepath, "fasta")
+                    gene_queries.append(genepath)
+    commands, paths_to_outputs, paths_to_recip_outputs = [], [], []
+    for query in gene_queries:
+        pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
             make_prot_prot_blast_cmds(
-                query_file=prokka_files.faa,
+                query_file=query,
                 evalue=args.min_evalue,
                 reciprocal=args.reciprocal,
                 subject_file=args.reference,
                 threads=args.threads,
                 output=output_root, date=date,
                 logger=logger)
-    else:
-        # check only selected the genes for completeness
-        all_loci = return_list_of_locus_tags(faa=prokka_files.gbk)
-        genes_dirpath = os.path.join(output_root, "query_genes")
-        gene_queries = []
-        os.makedirs(genes_dirpath)
-        # for each record, get the first and the last feature that isnt a "source"
-        with open(prokka_files.gbk, "r") as inf:
-            for rec in SeqIO.parse(inf, "genbank"):
-                nfeats = len(rec.features)
-                FIRST = True
-                for idx, feat in enumerate(rec.features):
-                    # if the first or last records
-                    if feat.type == "source":
-                        continue
-                    if FIRST or idx == nfeats - 1:
-                        FIRST = False
-                        # print(type(feat.qualifiers.get('translation')))
-                        gene = feat.extract(rec)
-                        gene.seq = gene.seq.translate()
-                        gene.id = feat.qualifiers.get("locus_tag")[0]
-                        genepath = os.path.join(
-                            genes_dirpath, gene.id + ".faa" )
-                        SeqIO.write(gene, genepath, "fasta")
-                        gene_queries.append(genepath)
-        commands, paths_to_outputs, paths_to_recip_outputs = [], [], []
-        for query in gene_queries:
-            pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
-                make_prot_prot_blast_cmds(
-                    query_file=query,
-                    evalue=args.min_evalue,
-                    reciprocal=args.reciprocal,
-                    subject_file=args.reference,
-                    threads=args.threads,
-                    output=output_root, date=date,
-                    logger=logger)
-            commands.extend(pcommands),
-            paths_to_outputs.extend(ppaths_to_outputs)
-            paths_to_recip_outputs.extend(ppaths_to_recip_outputs)
+        commands.extend(pcommands),
+        paths_to_outputs.extend(ppaths_to_outputs)
+        paths_to_recip_outputs.extend(ppaths_to_recip_outputs)
     logger.debug("cmds:" )
     logger.debug(commands)
     logger.debug("paths to outputs:" )
@@ -559,7 +560,6 @@ def main(args=None, logger=None):
         min_percent=args.min_percent_id,
         min_length_percent=args.min_length,
         logger=logger)
-    print(filtered_hits)
 
     good_loci = [x for x in all_loci if x not in bad_loci]
     make_new_genbank(
@@ -569,10 +569,16 @@ def main(args=None, logger=None):
             os.path.basename(os.path.splitext(prokka_files.faa)[0]) + "_filtered.gbk"),
         approved_accessions=good_loci,
         logger=logger)
-    sys.stdout.write("Total loci\tLoci kept\tLoci lost\n")
+    sys.stdout.write("Total\tKept\tLost\n")
     sys.stdout.write("{0}\t{1}\t{2}\n".format(
         len(all_loci), len(good_loci), len(bad_loci)))
     filtered_hits.to_csv(os.path.join(output_root, "filtered_hits.csv"))
+    with open(os.path.join(output_root, "bad_loci.txt"), "w") as outf:
+        for loci in bad_loci:
+            outf.write(loci + "\n")
+    with open(os.path.join(output_root, "good_loci.txt"), "w") as outf:
+        for loci in good_loci:
+            outf.write(loci + "\n")
 
 
 

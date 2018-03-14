@@ -4,7 +4,7 @@ Rscript ../riboSeed/scripts/getCompleteGenomeSubset.R /home/nicholas/GitHub/ribo
 gunzip ./colis/genomes/*
 cd ./colis/genomes/
 # for each of them, run prokka to get annotation
-counter=0; for i in *.fna; do prokka --outdir ./${i} --prefix coli13 --compliant --genus Escherichia --species coli --cpus 4 ${i}.fna; counter=$(($counter + 1)); done 
+counter=0; for i in *.fna; do prokka --outdir ./${i} --prefix coli13 --compliant --genus Escherichia --species coli --cpus 4 ${i}.fna; counter=$(($counter + 1)); done
 # I got bored after 11 genomes.  thats enough for a pangenome?  right? right? why are you shaking your head
 # build a pangenome
 roary -p 4 -f 11complete_colis -e -r -v ./colis/genomes/*/*.gff
@@ -16,3 +16,20 @@ prokka BA000007.2.fasta --outdir sample_prokka --cpus 4
 prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli --cpus 4 ../riboSeed/manuscript_results/simulated_genome/test_consensus/final_de_fere_novo_assembly/contigs.fasta
 ```
 (Test data can be downloaded here)[https://zenodo.org/record/1196324/files/annofilt_test_data_archive.tar.gz]
+
+# The Problem
+Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
+# The Solution
+
+`annofilt` is used to filter annotations that appear to be truncated, based on a pangenome of closed genomes.  the algorithm proceeds as follows:
+
+
+```
+for gene in assembly:
+   blast against pangenome database
+   if the hit passes thresholds set by user:
+     retain
+   else:
+     reject
+
+```
