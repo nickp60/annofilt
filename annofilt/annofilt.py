@@ -28,7 +28,7 @@ from Bio.Blast.Applications import NcbitblastnCommandline
 from Bio.Blast.Applications import NcbiblastpCommandline
 
 
-logger = logging.getLogger('root')
+# logger = logging.getLogger('root')
 
 def get_args():
     parser = argparse.ArgumentParser(
@@ -78,7 +78,14 @@ def get_args():
         "--threads",
         dest="threads",
         default=4,
-        help="number of threads to use")
+        help="number of threads to use;")
+    optional.add_argument(
+        "-s"
+        "--sge",
+        dest="sge",
+        action="store_true",
+        help="use Sun Grid Engine for job distribution; " +
+        "default is to use multiprocessing")
     optional.add_argument(
         "--genes", dest="just_genes",
         action="store_true",
@@ -108,17 +115,22 @@ def make_prokka_files_object(prokka_dir):
             raise ValueError(
                 "Multiple " + ext + " files found in prokka ouput!")
         checked.append(files[0])
+    # its prokka output; we can assume they all have the same prefix
+    prefix = os.path.basename(os.path.splitext(checked[0])[0])
     return Namespace(faa=checked[0],
                      gbk=checked[1],
-                     gff=checked[2])
+                     gff=checked[2],
+                     prefix=prefix)
 
 
-def return_list_of_locus_tags(gbk=None, faa=None):
+def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
     lt_list = []
     if gbk is not None:
         with open(gbk, "r") as inf:
             for rec in SeqIO.parse(inf, "genbank"):
                 for feat in rec.features:
+                    if feat.type != "CDS" and cds_only:
+                        continue
                     lt = feat.qualifiers.get("locus_tag")
                     if lt is not None:
                         # I dont know why locus tags are stored as lists;
@@ -248,8 +260,6 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
             subset1 = tempdf1.loc[
                 (tempdf1["identity_perc"] > min_percent) &
                 (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
-            logger.debug("grouped df shape: ")
-            logger.debug(tempdf1.shape)
             if subset1.empty:
                 logger.info("No full hits for %s in %s", gene, genome)
                 logger.debug(tempdf1)
@@ -332,8 +342,10 @@ def set_up_logging(verbosity, outfile, name):
     logs debug level to file, and [verbosity] level to stderr
     return a logger object
     """
+
     if (verbosity * 10) not in range(10, 60, 10):
         raise ValueError('Invalid log level: %s' % verbosity)
+    logger = logging.getLogger()
     # logging.basicConfig(level=logging.DEBUG)
     logger.setLevel(logging.DEBUG)
     # create console handler and set level to given verbosity
@@ -438,6 +450,14 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
             SeqIO.write(nr, outf, "genbank")
 
 
+def make_filter_gff_cmd(gff, baddies, newgff):
+    """ given a gff file and a file of unwanted locus tags, run inverse grep
+    """
+    # -f means get pattern from file
+    # -v means return inverse match
+    return "grep {0} -f {1} -v > {2}".format(gff, baddies, newgff)
+
+
 def main(args=None, logger=None):
     # get args
     if args is None:
@@ -456,47 +476,42 @@ def main(args=None, logger=None):
     for k, v in sorted(vars(args).items()):
         logger.debug("{0}: {1}".format(k, v))
     date = str(datetime.datetime.now().strftime('%Y%m%d'))
-
+    logger.debug("processing prokka output")
     prokka_files = make_prokka_files_object(args.prokka_dir)
-
-    # if args.full:
-    #     all_loci = return_list_of_locus_tags(faa=prokka_files.faa)
-    #     # check all the genes for completeness
-    #     commands, paths_to_outputs, paths_to_recip_outputs = \
-    #         make_prot_prot_blast_cmds(
-    #             query_file=prokka_files.faa,
-    #             evalue=args.min_evalue,
-    #             reciprocal=args.reciprocal,
-    #             subject_file=args.reference,
-    #             threads=args.threads,
-    #             output=output_root, date=date,
-    #             logger=logger)
-    # else:
     # check only selected the genes for completeness
+    logger.debug("get list of locus tags from assembly")
     all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
     genes_dirpath = os.path.join(output_root, "query_genes")
     gene_queries = []
     os.makedirs(genes_dirpath)
     # for each record, get the first and the last feature that isnt a "source"
+    logger.debug("writing out genes for blasting")
     with open(prokka_files.gbk, "r") as inf:
         for rec in SeqIO.parse(inf, "genbank"):
             nfeats = len(rec.features)
+            logger.debug("found %d features on %s", nfeats, rec.id)
             FIRST = True
             for idx, feat in enumerate(rec.features):
-                # if the first or last records
-                if feat.type == "source":
+                if feat.type in ["source", "repeat_region"]:
                     continue
                 if (args.full or FIRST or idx == nfeats - 1):
                     FIRST = False
-                    # print(type(feat.qualifiers.get('translation')))
                     gene = feat.extract(rec)
-                    gene.seq = gene.seq.translate()
-                    gene.id = feat.qualifiers.get("locus_tag")[0]
+                    try:
+                        gene.seq = gene.seq.translate()
+                    except BiopythonWarning as bpw:
+                        logger.warning(bpw)
+                    try:
+                        gene.id = feat.qualifiers.get("locus_tag")[0]
+                    except TypeError:
+                        logger.warning("Could not get a locus tag for the " +
+                                       "following feature: %s", feat)
                     genepath = os.path.join(
                         genes_dirpath, gene.id + ".faa" )
                     SeqIO.write(gene, genepath, "fasta")
                     gene_queries.append(genepath)
     commands, paths_to_outputs, paths_to_recip_outputs = [], [], []
+    logger.debug("making blast commands")
     for query in gene_queries:
         pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
             make_prot_prot_blast_cmds(
@@ -510,14 +525,14 @@ def main(args=None, logger=None):
         commands.extend(pcommands),
         paths_to_outputs.extend(ppaths_to_outputs)
         paths_to_recip_outputs.extend(ppaths_to_recip_outputs)
-    logger.debug("cmds:" )
-    logger.debug(commands)
+    logger.debug("writing out blast commands for reference")
+    with open(os.path.join(output_root, "blast_cmds.txt"), "w") as outf:
+        for c in commands:
+            outf.write(c)
     logger.debug("paths to outputs:" )
     logger.debug(paths_to_outputs )
-    # check for existing blast results
-
-    if not all([os.path.isfile(x) for x in paths_to_outputs]):
-        pool = multiprocessing.Pool()
+    if not args.sge:
+        pool = multiprocessing.Pool(processes=args.threads)
         logger.debug("Running the following commands in parallel " +
                      "(this could take a while):")
         logger.debug("\n" + "\n".join([x for x in commands]))
@@ -534,21 +549,17 @@ def main(args=None, logger=None):
         reslist = []
         reslist.append([r.get() for r in results])
     else:
-        pass
-    merged_tab = os.path.join(output_root,
-                              "merged_results.tab")
-    recip_merged_tab = os.path.join(output_root,
-                                    "recip_merged_results.tab")
-    post_merged_tab = merge_outfiles(filelist=paths_to_outputs,
-                                     outfile_name=merged_tab)
-    resultsdf = BLAST_tab_to_df(post_merged_tab)
-    logger.debug(resultsdf)
+        raise ValueError("SGE scheduling no yet implemented!")
+    merged_tab = merge_outfiles(filelist=paths_to_outputs,
+                                outfile_name=os.path.join(
+                                    output_root, "merged_results.tab"))
+    resultsdf = BLAST_tab_to_df(merged_tab)
+
     if args.reciprocal:
-        logger.debug("paths to recip outputs:")
-        logger.debug(paths_to_recip_outputs)
-        post_recip_merged_tab = merge_outfiles(filelist=paths_to_recip_outputs,
-                                               outfile_name=recip_merged_tab)
-        recip_resultsdf = BLAST_tab_to_df(post_recip_merged_tab)
+        recip_merged_tab = merge_outfiles(
+            filelist=paths_to_recip_outputs,
+            outfile_name=os.path.join(output_root, "recip_merged_results.tab"))
+        recip_resultsdf = BLAST_tab_to_df(recip_merged_tab)
     else:
         recip_resultsdf = None
 
@@ -566,21 +577,35 @@ def main(args=None, logger=None):
         genbank=prokka_files.gbk,
         new_genbank=os.path.join(
             output_root,
-            os.path.basename(os.path.splitext(prokka_files.faa)[0]) + "_filtered.gbk"),
+            prokka_files.prefix + "_filtered.gbk"),
         approved_accessions=good_loci,
         logger=logger)
-    sys.stdout.write("Total\tKept\tLost\n")
-    sys.stdout.write("{0}\t{1}\t{2}\n".format(
-        len(all_loci), len(good_loci), len(bad_loci)))
     filtered_hits.to_csv(os.path.join(output_root, "filtered_hits.csv"))
-    with open(os.path.join(output_root, "bad_loci.txt"), "w") as outf:
+    baddies_file = os.path.join(output_root, "bad_loci.txt")
+    with open(baddies_file, "w") as outf:
         for loci in bad_loci:
             outf.write(loci + "\n")
     with open(os.path.join(output_root, "good_loci.txt"), "w") as outf:
         for loci in good_loci:
             outf.write(loci + "\n")
-
-
+    newgff = os.path.join(
+        output_root,
+        prokka_files.prefix + "_filtered.gff")
+    logger.debug("writing filtered gff to %s", newgff)
+    filter_cmd = make_filter_gff_cmd(
+        gff=prokka_files.gff,
+        baddies=baddies_file,
+        newgff=newgff)
+    subprocess.run(filter_cmd,
+                   shell=sys.platform != "win32",
+                   stdout=subprocess.PIPE,
+                   stderr=subprocess.PIPE, check=True)
+    sys.stderr.write("Total\tKept\tLost\n")
+    sys.stdout.write("{0}\t{1}\t{2}\n".format(
+        len(all_loci), len(good_loci), len(bad_loci)))
+    sys.stderr.write("{0}\t{1}\t{2}\n".format(
+        len(all_loci), len(good_loci), len(bad_loci)))
+    logger.debug("Done!")
 
 if __name__ == "__main__":
     main()

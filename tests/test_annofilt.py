@@ -67,11 +67,13 @@ class annofilt(unittest.TestCase):
             min_length_percent=.75,
             logger=logger)
 
-
     def test_return_list_of_locus_tags_gbk(self):
         self.assertEqual(
             len(af.return_list_of_locus_tags(gbk=self.ref_gb)),
             89)
+        self.assertEqual(
+            len(af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)),
+            65)
 
     def test_return_list_of_locus_tags_faa(self):
         self.assertEqual(
@@ -82,11 +84,16 @@ class annofilt(unittest.TestCase):
         """ we know this fails;
         the faa file only has proteins, while the gbk file has all annotations
         """
-        gbkl = af.return_list_of_locus_tags(gbk=self.ref_gb)
+        gbkl = af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)
         faal = af.return_list_of_locus_tags(faa=self.ref_faa)
-        for i in range(89):
+        for i in range(len(gbkl)):
             self.assertEqual(gbkl[i], faal[i])
 
+    def test_make_filter_gff_cmd(self):
+        self.assertEqual(
+            af.make_filter_gff_cmd(gff="gff", baddies="yuk", newgff="ohboy"),
+            "grep gff -f yuk -v > ohboy"
+            )
 
     def tearDown(self):
         """ delete temp files if no errors

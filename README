@@ -17,6 +17,9 @@ prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli
 ```
 (Test data can be downloaded here)[https://zenodo.org/record/1196324/files/annofilt_test_data_archive.tar.gz]
 
+
+[[./icon/icon.pdf]]
+
 # The Problem
 Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
 # The Solution
