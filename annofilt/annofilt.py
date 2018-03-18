@@ -28,8 +28,6 @@ from Bio.Blast.Applications import NcbitblastnCommandline
 from Bio.Blast.Applications import NcbiblastpCommandline
 
 
-# logger = logging.getLogger('root')
-
 def get_args(): #pragma nocover
     parser = argparse.ArgumentParser(
         description="Blast assembly against core genome to find and " +
@@ -55,7 +53,7 @@ def get_args(): #pragma nocover
         help="check ALL genes for completeness, not just on ends of contigs." +
         " This is much slower.")
     optional.add_argument(
-        "--quick", dest="quick",
+        "--local_quick", dest="local_quick",
         action="store_true",
         help="blast using prokkas' protein fasta;  can speed up preformance " +
         "by avoiding writing out genes to separate files, but this is " +
@@ -547,7 +545,7 @@ def main(args=None, logger=None):
     # check only selected the genes for completeness
     logger.debug("get list of locus tags from assembly")
     all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
-    if not args.quick:
+    if not args.local_quick:
         commands, paths_to_outputs, paths_to_recip_outputs = \
             get_genewise_blast_cmds(
                 output_root=output_root,
