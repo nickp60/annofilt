@@ -38,8 +38,8 @@ def get_args(): #pragma nocover
         add_help=False)
     parser.add_argument(
         "reference",
-        help="path to an fasta (either protein or nucleotide) " +
-        "containing al the genes in the  genome;  for instance, " +
+        help="path to a nucleotide fasta" +
+        "containing al the genes in the  genome; for instance, " +
         "the pan_genome_reference.fa from roary")
     parser.add_argument(
         "prokka_dir",
@@ -54,6 +54,12 @@ def get_args(): #pragma nocover
         action="store_true",
         help="check ALL genes for completeness, not just on ends of contigs." +
         " This is much slower.")
+    optional.add_argument(
+        "--quick", dest="quick",
+        action="store_true",
+        help="blast using prokkas' protein fasta;  can speed up preformance " +
+        "by avoiding writing out genes to separate files, but this is " +
+        "less efficient to paralellize")
     optional.add_argument(
         "-r"
         "--reciprocal", dest="reciprocal",
@@ -160,24 +166,23 @@ def make_prot_prot_blast_cmds(
     subjectdb = os.path.join(db_dir,
                              os.path.splitext(os.path.basename(subject_file))[0])
     first_record = SeqIO.parse(subject_file, "fasta").__next__()
-    subject_is_protein = False
-    logger.info("Creating protein BLAST database")
-    os.makedirs(db_dir, exist_ok=False)
-    # I need a better way to check if subject is protein or nucl
-    # if (
-    #         first_record.seq.alphabet == IUPAC.IUPACProtein() or
-    #         first_record.seq.alphabet == IUPAC.SingleLetterAlphabet()):
-    if protein_subject:
-        subject_is_protein = True
-        setup_blast_db(input_file=subject_file,
-                       input_type="fasta",
-                       dbtype="prot",
-                       out=subjectdb, logger=logger)
-    else:
-        setup_blast_db(input_file=subject_file,
-                       input_type="fasta",
-                       dbtype="nucl",
-                       out=subjectdb, logger=logger)
+    if not os.path.isdir(db_dir):
+        logger.info("Creating protein BLAST database")
+        os.makedirs(db_dir, exist_ok=False)
+        # I need a better way to check if subject is protein or nucl
+        # if (
+        #         first_record.seq.alphabet == IUPAC.IUPACProtein() or
+        #         first_record.seq.alphabet == IUPAC.SingleLetterAlphabet()):
+        if protein_subject:
+            setup_blast_db(input_file=subject_file,
+                           input_type="fasta",
+                           dbtype="prot",
+                           out=subjectdb, logger=logger)
+        else:
+            setup_blast_db(input_file=subject_file,
+                           input_type="fasta",
+                           dbtype="nucl",
+                           out=subjectdb, logger=logger)
     blast_cmds = []
     blast_outputs = []
     recip_blast_outputs = []
@@ -187,7 +192,7 @@ def make_prot_prot_blast_cmds(
         output_path_tab = os.path.join(
             output,
             qname + "_vs_protdb.tab")
-        if subject_is_protein:
+        if protein_subject:
             blast_cline = NcbiblastpCommandline(
                 query=f,
                 db=subjectdb, evalue=evalue, out=output_path_tab)
@@ -207,7 +212,7 @@ def make_prot_prot_blast_cmds(
         recip_output_path_tab = os.path.join(
             output,
             "protdb_vs_" + qname + ".tab")
-        if subject_is_protein:
+        if protein_subject:
             recip_blast_cline = NcbiblastpCommandline(
                 query=subject_file,
                 subject=f,
@@ -332,7 +337,7 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
     return(filtered, bad_loci)
 
 
-def set_up_logging(verbosity, outfile, name):
+def set_up_logging(verbosity, outfile, name): #pragma nocover
     """
     Set up logging a la pyani, with
     a little help from:
@@ -436,15 +441,14 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
             newrec = copy.deepcopy(rec)
             newrec.features = []
             for idx, feat in enumerate(rec.features):
-                if feat.type != "CDS":
-                    newrec.features.append(feat)
+                if feat.type in ["source", "repeat_region"]:
                     continue
-                if feat.qualifiers.get("locus_tag")[0] in approved_accessions:
+                elif feat.qualifiers.get("locus_tag")[0] in approved_accessions:
                     newrec.features.append(feat)
                 else:
                     logger.info(feat.qualifiers.get("locus_tag")[0] +
                                 " was rejected")
-                newrecs.append(newrec)
+            newrecs.append(newrec)
     with open(new_genbank, "w") as outf:
         for nr in newrecs:
             SeqIO.write(nr, outf, "genbank")
@@ -458,29 +462,7 @@ def make_filter_gff_cmd(gff, baddies, newgff):
     return "grep {0} -f {1} -v > {2}".format(gff, baddies, newgff)
 
 
-def main(args=None, logger=None):
-    # get args
-    if args is None:
-        args = get_args()
-    output_root = os.path.abspath(os.path.expanduser(args.output))
-    if not os.path.isdir(output_root):
-        sys.stderr.write("creating output directory %s\n" % output_root)
-        os.makedirs(output_root)
-    else:
-        sys.stderr.write("Output Directory already exists!\n")
-        sys.exit(1)
-    if logger is None:
-        logger = set_up_logging(outfile=os.path.join(output_root, "log.log"),
-                            name="annofilt", verbosity=args.verbosity)
-    logger.debug("All settings used:")
-    for k, v in sorted(vars(args).items()):
-        logger.debug("{0}: {1}".format(k, v))
-    date = str(datetime.datetime.now().strftime('%Y%m%d'))
-    logger.debug("processing prokka output")
-    prokka_files = make_prokka_files_object(args.prokka_dir)
-    # check only selected the genes for completeness
-    logger.debug("get list of locus tags from assembly")
-    all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
+def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
     genes_dirpath = os.path.join(output_root, "query_genes")
     gene_queries = []
     os.makedirs(genes_dirpath)
@@ -519,13 +501,66 @@ def main(args=None, logger=None):
                 evalue=args.min_evalue,
                 reciprocal=args.reciprocal,
                 subject_file=args.reference,
-                protein_subject=True,
-                threads=args.threads,
+                protein_subject=False,
+                threads=1,
                 output=output_root,
                 logger=logger)
         commands.extend(pcommands),
         paths_to_outputs.extend(ppaths_to_outputs)
         paths_to_recip_outputs.extend(ppaths_to_recip_outputs)
+    return (commands, paths_to_outputs, paths_to_recip_outputs)
+
+
+def get_genome_blast_cmds(output_root, prokka_files, args, logger=None):
+    commands, paths_to_outputs, paths_to_recip_outputs = \
+        make_prot_prot_blast_cmds(
+            query_file=prokka_files.faa,
+            evalue=args.min_evalue,
+            reciprocal=args.reciprocal,
+            subject_file=args.reference,
+            protein_subject=True,
+            threads=args.threads,
+            output=output_root,
+            logger=logger)
+    return (commands, paths_to_outputs, paths_to_recip_outputs)
+
+
+def main(args=None, logger=None):
+    # get args
+    if args is None:
+        args = get_args()
+    output_root = os.path.abspath(os.path.expanduser(args.output))
+    if not os.path.isdir(output_root):
+        sys.stderr.write("creating output directory %s\n" % output_root)
+        os.makedirs(output_root)
+    else:
+        sys.stderr.write("Output Directory already exists!\n")
+        sys.exit(1)
+    if logger is None:
+        logger = set_up_logging(outfile=os.path.join(output_root, "log.log"),
+                            name="annofilt", verbosity=args.verbosity)
+    logger.debug("All settings used:")
+    for k, v in sorted(vars(args).items()):
+        logger.debug("{0}: {1}".format(k, v))
+    date = str(datetime.datetime.now().strftime('%Y%m%d'))
+    logger.debug("processing prokka output")
+    prokka_files = make_prokka_files_object(args.prokka_dir)
+    # check only selected the genes for completeness
+    logger.debug("get list of locus tags from assembly")
+    all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
+    if not args.quick:
+        commands, paths_to_outputs, paths_to_recip_outputs = \
+            get_genewise_blast_cmds(
+                output_root=output_root,
+                prokka_files=prokka_files,
+                args=args, logger=logger)
+    else:
+        commands, paths_to_outputs, paths_to_recip_outputs = \
+            get_genewise_blast_cmds(
+                output_root=output_root,
+                prokka_files=prokka_files,
+                args=args, logger=logger)
+
     logger.debug("writing out blast commands for reference")
     with open(os.path.join(output_root, "blast_cmds.txt"), "w") as outf:
         for c in commands:

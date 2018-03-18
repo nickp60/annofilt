@@ -6,6 +6,7 @@ import time
 import copy
 import logging
 import glob
+from argparse import Namespace
 from Bio import SeqIO
 
 from annofilt import annofilt as af
@@ -24,6 +25,8 @@ class annofilt(unittest.TestCase):
                                      "testdata")
         self.merged_tab = os.path.join(self.data_dir,
                                        "merged_results.tab")
+        self.ref_pangenome = os.path.join(os.path.dirname(__file__),
+                                          "testdata", "miniref.fna")
         self.ref_gb = os.path.join(os.path.dirname(__file__),
                                    "testdata", "PROKKA.gbk")
         self.ref_faa = os.path.join(os.path.dirname(__file__),
@@ -33,14 +36,20 @@ class annofilt(unittest.TestCase):
             os.makedirs(self.test_dir, exist_ok=True)
         self.startTime = time.time()
 
-    def tet_loop_through_genbank(self):
-        """ construct spades command that check for file presense
-        this is useful when multiprocessing and unable to check before
-        sending the command out
+    def test_loop_through_genbank(self):
+        """ test creation of new gb after filtering.
+        Not the greatest test
         """
-        af.make_new_genbank(genbank=self.ref_gb,
-                         new_genbank=os.path.join(self.test_dir, "new.gb"),
-                         approved_accessions=["ECUMN_0005"], logger=logger)
+        newf = os.path.join(self.test_dir, "new.gbk")
+        af.make_new_genbank(
+            genbank=self.ref_gb,
+            new_genbank=newf,
+            approved_accessions=["IPDMBIDP_00043"], logger=logger)
+        nlines = 0
+        with open(newf, "r") as inf:
+            for line in inf:
+                nlines = nlines + 1
+        self.assertEqual(nlines, 1521)
 
     def test_BLAST_tab_to_df(self):
         self.assertEqual(
@@ -104,14 +113,14 @@ class annofilt(unittest.TestCase):
             "grep gff -f yuk -v > ohboy"
         )
 
-    def test_blast_cmds(self):
+    def tet_blast_cmds(self):
         cmds, opaths, ropaths = af.make_prot_prot_blast_cmds(
             query_file = "query.fa", subject_file = self.ref_faa,
             evalue=1, output=self.test_dir + "/output/", threads=3,
-            reciprocal=False, protein_subject=True, logger=logger)
+            reciprocal=False, protein_subject=False, logger=logger)
         self.assertEqual(
             cmds[0],
-            "blastp -out " +
+            "tblasn -out " +
             self.test_dir +
             "/output/query_vs_protdb.tab -query query.fa -db " +
             self.test_dir +
@@ -123,6 +132,20 @@ class annofilt(unittest.TestCase):
         self.to_be_removed.append(
             os.path.join(self.test_dir, "output", "PROKKA"))
         # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
+
+
+    def test_get_genewise_blast_cmds(self):
+        file_ob = af.make_prokka_files_object(self.data_dir)
+        args=Namespace(min_evalue=1, reciprocal=False,
+                       threads=1, reference=self.ref_pangenome, full=False)
+        commands, paths_to_outputs, paths_to_recip_outputs = \
+            af.get_genewise_blast_cmds(output_root=self.test_dir, prokka_files=file_ob,
+                               args=args, logger=logger)
+        self.to_be_removed.extend(glob.glob(os.path.join(
+            self.test_dir, "query_genes", "*")))
+        self.to_be_removed.append(
+            os.path.join(self.test_dir, "query_genes"))
+
 
     def tearDown(self):
         """ delete temp files if no errors
