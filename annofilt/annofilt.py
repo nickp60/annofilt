@@ -67,17 +67,17 @@ def get_args(): #pragma nocover
         help="reciprocal blast for stringent checking")
     optional.add_argument(
         "-p"
-        "--min_percent_id", dest="min_percent_id",
-        help="minimum percentage id", type=float, default=.9)
+        "--min_id_percent", dest="min_id_percent",
+        help="minimum percentage id (1-100)", type=float, default=85)
     optional.add_argument(
         "-l"
-        "--min_length", dest="min_length",
-        help="minimum percentage length", type=float, default=.9)
+        "--min_length", dest="min_length_frac",
+        help="minimum percentage length (0-1)", type=float, default=.9)
     optional.add_argument(
         "-e"
         "--min_evalue",
         dest="min_evalue",
-        default=.00005,
+        default=.0001,
         help="minimum e value")
     optional.add_argument(
         "-t"
@@ -85,7 +85,7 @@ def get_args(): #pragma nocover
         dest="threads",
         type=int,
         default=4,
-        help="number of threads to use;")
+        help="number of threads to use; default to 4")
     optional.add_argument(
         "-s"
         "--sge",
@@ -231,8 +231,7 @@ def make_prot_prot_blast_cmds(
     return(blast_cmds, blast_outputs, recip_blast_outputs)
 
 
-
-def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logger=None):
+def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, reciprocal, logger=None):
     """ results from pd.read_csv with default BLAST output 6 columns
     df1 must be genomes against genes, and df2 must be genes against genomes,
     because we have to split the names so all all the contigs are recognized
@@ -263,14 +262,14 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
             tempdf1 = df1.loc[(df1["query_id"] == gene), ]
             # here we get the best hit (the one maximizing e value)
             subset1 = tempdf1.loc[
-                (tempdf1["identity_perc"] > min_percent) &
-                (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
+                (tempdf1["identity_perc"] > min_id_percent) &
+                (tempdf1["bit_score"] == tempdf1["bit_score"].max()) &
+                (tempdf1["evalue"] < min_evalue)]
             if subset1.empty:
-                logger.info("No full hits for %s in %s", gene, genome)
+                logger.info("No full hits for %s", gene)
                 logger.debug(tempdf1)
-                nonrecip_hits.append([gene, genome])
                 bad_loci.append(gene)
-            elif all(subset1["alignment_length"] > subset1["subject_length"] * min_length_percent):
+            elif all(subset1["alignment_length"] >= (subset1["subject_length"] * min_length_frac)):
                 filtered = filtered.append(subset1)
             else:
                 bad_loci.append(gene)
@@ -294,11 +293,11 @@ def filter_BLAST_df(df1, df2, min_length_percent, min_percent, reciprocal, logge
                 logger.info("skipping %s in %s; no match found", gene, genome)
             else:
                 subset1 = tempdf1.loc[
-                    (tempdf1["identity_perc"] > min_percent) &
+                    (tempdf1["identity_perc"] > min_id_percent) &
                     (tempdf1["bit_score"] == tempdf1["bit_score"].max())]
                 # (tempdf1["alignement_l"] == tempdf1["bit_score"].max())]
                 subset2 = tempdf2.loc[
-                    (tempdf2["identity_perc"] > min_percent) &
+                    (tempdf2["identity_perc"] > min_id_percent) &
                     (tempdf2["bit_score"] == tempdf2["bit_score"].max())]
                 logger.debug("grouped df shape: ")
                 logger.debug(tempdf1.shape)
@@ -604,8 +603,9 @@ def main(args=None, logger=None):
         df1=resultsdf,
         df2=recip_resultsdf,
         reciprocal=args.reciprocal,
-        min_percent=args.min_percent_id,
-        min_length_percent=args.min_length,
+        min_evalue=args.min_evalue,
+        min_id_percent=args.min_id_percent,
+        min_length_frac=args.min_length_frac,
         logger=logger)
 
     good_loci = [x for x in all_loci if x not in bad_loci]

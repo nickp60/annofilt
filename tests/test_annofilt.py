@@ -25,6 +25,8 @@ class annofilt(unittest.TestCase):
                                      "testdata")
         self.merged_tab = os.path.join(self.data_dir,
                                        "merged_results.tab")
+        self.tofilter_tab = os.path.join(self.data_dir,
+                                       "tofilter.tab")
         self.ref_pangenome = os.path.join(os.path.dirname(__file__),
                                           "testdata", "miniref.fna")
         self.ref_gb = os.path.join(os.path.dirname(__file__),
@@ -68,14 +70,14 @@ class annofilt(unittest.TestCase):
             )
         self.to_be_removed.append(dest)
 
-    def test_filter_BLAST_df(self):
-        filtered_hits, bad_loci = af.filter_BLAST_df(
-            df1=af.BLAST_tab_to_df(self.merged_tab),
-            df2="notafile",
-            reciprocal=False,
-            min_percent=.75,
-            min_length_percent=.75,
-            logger=logger)
+    # def test_filter_BLAST_df(self):
+    #     filtered_hits, bad_loci = af.filter_BLAST_df(
+    #         df1=af.BLAST_tab_to_df(self.merged_tab),
+    #         df2="notafile",
+    #         reciprocal=False,
+    #         min_id_percent=.75,
+    #         min_length_frac=100,
+    #         logger=logger)
 
     def test_make_prokka_files_object(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
@@ -133,7 +135,6 @@ class annofilt(unittest.TestCase):
             os.path.join(self.test_dir, "output", "PROKKA"))
         # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
 
-
     def test_get_genewise_blast_cmds(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
         args=Namespace(min_evalue=1, reciprocal=False,
@@ -145,6 +146,36 @@ class annofilt(unittest.TestCase):
             self.test_dir, "query_genes", "*")))
         self.to_be_removed.append(
             os.path.join(self.test_dir, "query_genes"))
+
+    def test_filter_BLAST_df_nofilt(self):
+        nofilt = af.filter_BLAST_df(
+            df1=af.BLAST_tab_to_df(self.tofilter_tab),
+            df2=None,
+            min_length_frac=.1, min_id_percent=0, min_evalue=1, reciprocal=False, logger=logger)
+        self.assertEqual(len(nofilt[1]), 0)
+
+    def test_filter_BLAST_df_low_id(self):
+        filt_id = af.filter_BLAST_df(
+            df1=af.BLAST_tab_to_df(self.tofilter_tab),
+            df2=None,
+            min_length_frac=.1, min_id_percent=100, min_evalue=1, reciprocal=False, logger=logger)
+        self.assertEqual(len(filt_id[1]), 1)
+
+    def test_filter_BLAST_df_low_length(self):
+        filt_length = af.filter_BLAST_df(
+            df1=af.BLAST_tab_to_df(self.tofilter_tab),
+            df2=None,
+            min_length_frac=.99, min_id_percent=0, min_evalue=1, reciprocal=False, logger=logger)
+        self.assertEqual(len(filt_length[1]), 1)
+
+    def test_filter_BLAST_df_low_evalue(self):
+        filt_evalue = af.filter_BLAST_df(
+            df1=af.BLAST_tab_to_df(self.tofilter_tab),
+            df2=None,
+            min_length_frac=.1, min_id_percent=0, min_evalue=.0001, reciprocal=False, logger=logger)
+        print(filt_evalue)
+        self.assertEqual(filt_evalue[0].shape[0], 2)
+        self.assertEqual(len(filt_evalue[1]), 0)
 
 
     def tearDown(self):
