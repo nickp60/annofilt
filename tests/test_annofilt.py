@@ -1,5 +1,6 @@
 import os
 import unittest
+import glob
 import sys
 import time
 import copy
@@ -22,11 +23,11 @@ class annofilt(unittest.TestCase):
         self.data_dir = os.path.join(os.path.dirname(__file__),
                                      "testdata")
         self.merged_tab = os.path.join(self.data_dir,
-                                     "merged_results.tab")
+                                       "merged_results.tab")
         self.ref_gb = os.path.join(os.path.dirname(__file__),
                                    "testdata", "PROKKA.gbk")
         self.ref_faa = os.path.join(os.path.dirname(__file__),
-                                   "testdata", "PROKKA.faa")
+                                    "testdata", "PROKKA.faa")
         self.to_be_removed = []
         if not os.path.exists(self.test_dir):
             os.makedirs(self.test_dir, exist_ok=True)
@@ -67,6 +68,14 @@ class annofilt(unittest.TestCase):
             min_length_percent=.75,
             logger=logger)
 
+    def test_make_prokka_files_object(self):
+        file_ob = af.make_prokka_files_object(self.data_dir)
+        self.assertEqual(file_ob.faa, self.ref_faa)
+
+    def test_make_prokka_files_object_bad(self):
+        with self.assertRaises(ValueError):
+            badfile_ob = af.make_prokka_files_object(self.test_dir)
+
     def test_return_list_of_locus_tags_gbk(self):
         self.assertEqual(
             len(af.return_list_of_locus_tags(gbk=self.ref_gb)),
@@ -93,14 +102,37 @@ class annofilt(unittest.TestCase):
         self.assertEqual(
             af.make_filter_gff_cmd(gff="gff", baddies="yuk", newgff="ohboy"),
             "grep gff -f yuk -v > ohboy"
-            )
+        )
+
+    def test_blast_cmds(self):
+        cmds, opaths, ropaths = af.make_prot_prot_blast_cmds(
+            query_file = "query.fa", subject_file = self.ref_faa,
+            evalue=1, output=self.test_dir + "/output/", threads=3,
+            reciprocal=False, protein_subject=True, logger=logger)
+        self.assertEqual(
+            cmds[0],
+            "blastp -out " +
+            self.test_dir +
+            "/output/query_vs_protdb.tab -query query.fa -db " +
+            self.test_dir +
+            "/output/PROKKA/PROKKA -evalue 1 -num_threads 3 -num_alignments " +
+            "20 -outfmt '6 qaccver saccver pident length mismatch " +
+            "gapopen qstart qend sstart send evalue bitscore slen'")
+        self.to_be_removed.extend(glob.glob(os.path.join(
+            self.test_dir, "output", "PROKKA", "*")))
+        self.to_be_removed.append(
+            os.path.join(self.test_dir, "output", "PROKKA"))
+        # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
 
     def tearDown(self):
         """ delete temp files if no errors
         """
-        for filename in self.to_be_removed:
-            os.unlink(filename)
-        pass
+        for f in self.to_be_removed:
+            if os.path.isfile(f):
+                os.unlink(f)
+            else:
+                os.removedirs(f)
+
 
 if __name__ == '__main__':
     unittest.main()

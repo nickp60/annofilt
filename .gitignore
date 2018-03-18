@@ -6,3 +6,5 @@
 *egg-info
 annofilt_test_data_archive.tar.gz
 annofilt_test_data_archive
+.coverage
+htmlcov

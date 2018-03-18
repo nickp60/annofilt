@@ -30,7 +30,7 @@ from Bio.Blast.Applications import NcbiblastpCommandline
 
 # logger = logging.getLogger('root')
 
-def get_args():
+def get_args(): #pragma nocover
     parser = argparse.ArgumentParser(
         description="Blast assembly against core genome to find and " +
         "eliminate truncated genes due to bad assembly, " +
@@ -77,6 +77,7 @@ def get_args():
         "-t"
         "--threads",
         dest="threads",
+        type=int,
         default=4,
         help="number of threads to use;")
     optional.add_argument(
@@ -104,16 +105,17 @@ def get_args():
 
 
 def make_prokka_files_object(prokka_dir):
-    """
+    """ givne a prokka output directory, find the AA fasta, genbank, and gff
+    returns a Namespace object
     """
     checked = []
     for ext in ["faa", "gbk", "gff"]:
-        files = glob.glob(prokka_dir + "*" + ext)
-        if len(files) is None:
-            raise ValueError("No " + ext + " file found in prokka dir!")
+        files = glob.glob(prokka_dir + os.path.sep + "*" + ext)
+        if len(files) == 0:
+            raise ValueError("No %s file found in %s!" % (ext, prokka_dir))
         if len(files) > 1:
             raise ValueError(
-                "Multiple " + ext + " files found in prokka ouput!")
+                "Multiple %s files found in %s!" % (ext, prokka_dir))
         checked.append(files[0])
     # its prokka output; we can assume they all have the same prefix
     prefix = os.path.basename(os.path.splitext(checked[0])[0])
@@ -147,37 +149,35 @@ def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
 
 
 def make_prot_prot_blast_cmds(
-        query_file, date, evalue, output, threads=1,
-        reciprocal=False,subject_file=None, logger=None):
+        query_file, evalue, output, subject_file, threads=1, protein_subject=False,
+        reciprocal=False, logger=None):
     """given a file, make a blast cmd, and return path to output csv
     This should handle both protein and nucleotide references.
     """
     assert logger is not None, "must use logging"
-    assert isinstance(threads, int), "threads must be integer"
-    # if dir exists, we already have the db created
-    #  (as we make it in the output dir)
     db_dir = os.path.join(output,
                           os.path.splitext(os.path.basename(subject_file))[0])
     subjectdb = os.path.join(db_dir,
                              os.path.splitext(os.path.basename(subject_file))[0])
     first_record = SeqIO.parse(subject_file, "fasta").__next__()
     subject_is_protein = False
-
-    if not os.path.isdir(db_dir):
-        logger.info("Creating protein BLAST database")
-        os.makedirs(db_dir, exist_ok=True)
-
-        if first_record.seq.alphabet == IUPAC.IUPACProtein():
-            subject_is_protein = True
-            setup_blast_db(input_file=subject_file,
-                           input_type="fasta",
-                           dbtype="prot",
-                           out=subjectdb, logger=logger)
-        else:
-            setup_blast_db(input_file=subject_file,
-                           input_type="fasta",
-                           dbtype="nucl",
-                           out=subjectdb, logger=logger)
+    logger.info("Creating protein BLAST database")
+    os.makedirs(db_dir, exist_ok=False)
+    # I need a better way to check if subject is protein or nucl
+    # if (
+    #         first_record.seq.alphabet == IUPAC.IUPACProtein() or
+    #         first_record.seq.alphabet == IUPAC.SingleLetterAlphabet()):
+    if protein_subject:
+        subject_is_protein = True
+        setup_blast_db(input_file=subject_file,
+                       input_type="fasta",
+                       dbtype="prot",
+                       out=subjectdb, logger=logger)
+    else:
+        setup_blast_db(input_file=subject_file,
+                       input_type="fasta",
+                       dbtype="nucl",
+                       out=subjectdb, logger=logger)
     blast_cmds = []
     blast_outputs = []
     recip_blast_outputs = []
@@ -519,8 +519,9 @@ def main(args=None, logger=None):
                 evalue=args.min_evalue,
                 reciprocal=args.reciprocal,
                 subject_file=args.reference,
+                protein_subject=True,
                 threads=args.threads,
-                output=output_root, date=date,
+                output=output_root,
                 logger=logger)
         commands.extend(pcommands),
         paths_to_outputs.extend(ppaths_to_outputs)
