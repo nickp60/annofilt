@@ -12,6 +12,7 @@ from Bio import SeqIO
 from annofilt import annofilt as af
 
 logger = logging
+
 @unittest.skipIf((sys.version_info[0] != 3) or (sys.version_info[1] < 5),
                  "Subprocess.call among other things wont run if tried " +
                  " with less than python 3.5")
@@ -69,15 +70,6 @@ class annofilt(unittest.TestCase):
             af.BLAST_tab_to_df(dest).shape
             )
         self.to_be_removed.append(dest)
-
-    # def test_filter_BLAST_df(self):
-    #     filtered_hits, bad_loci = af.filter_BLAST_df(
-    #         df1=af.BLAST_tab_to_df(self.merged_tab),
-    #         df2="notafile",
-    #         reciprocal=False,
-    #         min_id_percent=.75,
-    #         min_length_frac=100,
-    #         logger=logger)
 
     def test_make_prokka_files_object(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
@@ -173,7 +165,6 @@ class annofilt(unittest.TestCase):
             df1=af.BLAST_tab_to_df(self.tofilter_tab),
             df2=None,
             min_length_frac=.1, min_id_percent=0, min_evalue=.0001, reciprocal=False, logger=logger)
-        print(filt_evalue)
         self.assertEqual(filt_evalue[0].shape[0], 2)
         self.assertEqual(len(filt_evalue[1]), 0)
 

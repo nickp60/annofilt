@@ -545,13 +545,18 @@ def main(args=None, logger=None):
     # check only selected the genes for completeness
     logger.debug("get list of locus tags from assembly")
     all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
-    if not args.local_quick:
+
+
+    if not args.local_quick and args.full:
+        # build blast command using prokka faa as query
         commands, paths_to_outputs, paths_to_recip_outputs = \
             get_genewise_blast_cmds(
                 output_root=output_root,
                 prokka_files=prokka_files,
                 args=args, logger=logger)
     else:
+        # wtrite out genes to use as queries (
+        # if full, all the genes, else just the 1rst and last)
         commands, paths_to_outputs, paths_to_recip_outputs = \
             get_genewise_blast_cmds(
                 output_root=output_root,
@@ -596,7 +601,6 @@ def main(args=None, logger=None):
     else:
         recip_resultsdf = None
 
-
     filtered_hits, bad_loci = filter_BLAST_df(
         df1=resultsdf,
         df2=recip_resultsdf,
@@ -607,6 +611,7 @@ def main(args=None, logger=None):
         logger=logger)
 
     good_loci = [x for x in all_loci if x not in bad_loci]
+    # write out a .gbk file that lacks the genes deemed "bad" (truncated, etc)
     make_new_genbank(
         genbank=prokka_files.gbk,
         new_genbank=os.path.join(
@@ -615,6 +620,8 @@ def main(args=None, logger=None):
         approved_accessions=good_loci,
         logger=logger)
     filtered_hits.to_csv(os.path.join(output_root, "filtered_hits.csv"))
+
+    # write out locus tags that will be used with grep to filter the gff file
     baddies_file = os.path.join(output_root, "bad_loci.txt")
     with open(baddies_file, "w") as outf:
         for loci in bad_loci:
@@ -622,6 +629,7 @@ def main(args=None, logger=None):
     with open(os.path.join(output_root, "good_loci.txt"), "w") as outf:
         for loci in good_loci:
             outf.write(loci + "\n")
+
     newgff = os.path.join(
         output_root,
         prokka_files.prefix + "_filtered.gff")
