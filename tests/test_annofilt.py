@@ -108,7 +108,7 @@ class annofilt(unittest.TestCase):
         )
 
     def tet_blast_cmds(self):
-        cmds, opaths, ropaths = af.make_prot_prot_blast_cmds(
+        cmds, opaths, ropaths = af.make_blast_cmds(
             query_file = "query.fa", subject_file = self.ref_faa,
             evalue=1, output=self.test_dir + "/output/", threads=3,
             reciprocal=False, protein_subject=False, logger=logger)
@@ -130,6 +130,7 @@ class annofilt(unittest.TestCase):
     def test_get_genewise_blast_cmds(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
         args=Namespace(min_evalue=1, reciprocal=False,
+                       blast_algorithm="tblastn",
                        threads=1, reference=self.ref_pangenome, full=False)
         commands, paths_to_outputs, paths_to_recip_outputs = \
             af.get_genewise_blast_cmds(output_root=self.test_dir, prokka_files=file_ob,
@@ -143,6 +144,7 @@ class annofilt(unittest.TestCase):
         nofilt = af.filter_BLAST_df(
             df1=af.BLAST_tab_to_df(self.tofilter_tab),
             df2=None,
+            algo="blastn",
             min_length_frac=.1, min_id_percent=0, min_evalue=1, reciprocal=False, logger=logger)
         self.assertEqual(len(nofilt[1]), 0)
 
@@ -150,6 +152,7 @@ class annofilt(unittest.TestCase):
         filt_id = af.filter_BLAST_df(
             df1=af.BLAST_tab_to_df(self.tofilter_tab),
             df2=None,
+            algo="blastn",
             min_length_frac=.1, min_id_percent=100, min_evalue=1, reciprocal=False, logger=logger)
         self.assertEqual(len(filt_id[1]), 1)
 
@@ -157,6 +160,7 @@ class annofilt(unittest.TestCase):
         filt_length = af.filter_BLAST_df(
             df1=af.BLAST_tab_to_df(self.tofilter_tab),
             df2=None,
+            algo="blastn",
             min_length_frac=.99, min_id_percent=0, min_evalue=1, reciprocal=False, logger=logger)
         self.assertEqual(len(filt_length[1]), 1)
 
@@ -164,6 +168,7 @@ class annofilt(unittest.TestCase):
         filt_evalue = af.filter_BLAST_df(
             df1=af.BLAST_tab_to_df(self.tofilter_tab),
             df2=None,
+            algo="blastn",
             min_length_frac=.1, min_id_percent=0, min_evalue=.0001, reciprocal=False, logger=logger)
         self.assertEqual(filt_evalue[0].shape[0], 2)
         self.assertEqual(len(filt_evalue[1]), 0)

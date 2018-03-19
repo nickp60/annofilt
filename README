@@ -15,9 +15,6 @@ prokka BA000007.2.fasta --outdir sample_prokka --cpus 4
 # we also have a mini assembly to test on (see ribSeed toy genome)
 prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli --cpus 4 ../riboSeed/manuscript_results/simulated_genome/test_consensus/final_de_fere_novo_assembly/contigs.fasta
 ```
-(Test data can be downloaded here)[https://zenodo.org/record/1196324/files/annofilt_test_data_archive.tar.gz]
-
-
 [[./icon/icon.pdf]]
 
 # The Problem
@@ -48,3 +45,13 @@ To verify the length of annotated genes, we compare annotation length, alignemen
 1 *Normal* (fastest) - check annotations at the beginning and end of contigs
 2 *Local-quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
 3. *Full* (slowest) - genes are blasted individually; this gives more control with job hanndling (future versions will hopefully work with SGE, slurm, etc.)
+
+# Quick Start
+
+(Test data can be downloaded here)[https://zenodo.org/record/1196324/files/annofilt_test_data_archive.tar.gz]
+
+The test data contains a pangenome of 11 *E. coli* genomes, as well as a complete genome annotated with Prokka, and a toy genome assembly also annotated with Prokka.  To run `annofilt` with the test data, run the following command:
+
+```
+annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./annofilt_test_data_archive/assembly_sample/ -o out -v 1
+```

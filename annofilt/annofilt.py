@@ -23,9 +23,11 @@ from Bio.SeqRecord import SeqRecord
 from Bio.Seq import Seq
 from Bio.Alphabet import IUPAC
 from Bio.Blast import NCBIXML
-from Bio.Blast.Applications import NcbiblastxCommandline
+from Bio.Blast.Applications import NcbitblastxCommandline
 from Bio.Blast.Applications import NcbitblastnCommandline
 from Bio.Blast.Applications import NcbiblastpCommandline
+from Bio.Blast.Applications import NcbiblastnCommandline
+from Bio.Blast.Applications import NcbiblastxCommandline
 
 
 def get_args(): #pragma nocover
@@ -59,31 +61,40 @@ def get_args(): #pragma nocover
         "by avoiding writing out genes to separate files, but this is " +
         "less efficient to paralellize")
     optional.add_argument(
-        "-r"
+        "-r",
         "--reciprocal", dest="reciprocal",
         action="store_true",
         help="reciprocal blast for stringent checking")
     optional.add_argument(
-        "-p"
+        "-p",
         "--min_id_percent", dest="min_id_percent",
         help="minimum percentage id (1-100)", type=float, default=85)
     optional.add_argument(
-        "-l"
+        "-l",
         "--min_length", dest="min_length_frac",
         help="minimum percentage length (0-1)", type=float, default=.9)
     optional.add_argument(
-        "-e"
+        "-e",
         "--min_evalue",
         dest="min_evalue",
-        default=.0001,
+        default=1,
         help="minimum e value")
     optional.add_argument(
-        "-t"
+        "-t",
         "--threads",
         dest="threads",
         type=int,
         default=4,
         help="number of threads to use; default to 4")
+    optional.add_argument(
+        "-b",
+        "--blast_algorithm",
+        dest="blast_algorithm",
+        choices={"blastn", "blastp", "blastx", "tblastn", "tblastx"},
+        default="blastn",
+        help="Which BLAST algorithm to use. See BLAST documentation for " +
+        "choosing. Most common options are blastn and tblastn, as Roary " +
+        "provies a nucleotide pangenome.")
     optional.add_argument(
         "-s"
         "--sge",
@@ -92,12 +103,14 @@ def get_args(): #pragma nocover
         help="use Sun Grid Engine for job distribution; " +
         "default is to use multiprocessing")
     optional.add_argument(
-        "--genes", dest="just_genes",
+        "--genes",
+        dest="just_genes",
         action="store_true",
         help="only deal with the genes; default is to deal with " +
         "anything that has a locus tag")
     optional.add_argument(
-        "-v", "--verbosity",
+        "-v",
+        "--verbosity",
         dest='verbosity', action="store",
         default=2, type=int,
         help="1 = debug(), 2 = info(), 3 = warning(), " +
@@ -151,9 +164,20 @@ def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
     # usually a CDS and gene/tRNA/rRNA entry for each thing
     return list(set(lt_list))
 
+def make_blast_params(algo):
+    PROTEIN_SUBJECT = True
+    PROTEIN_QUERY = True
+    if algo in ["tblastn", "blastn", "tblastx"]:
+        PROTEIN_SUBJECT = False
+    if algo in ["tblastx", "blastx", "blastn"]:
+        PROTEIN_QUERY = False
+    return (PROTEIN_SUBJECT, PROTEIN_QUERY)
 
-def make_prot_prot_blast_cmds(
-        query_file, evalue, output, subject_file, threads=1, protein_subject=False,
+
+
+def make_blast_cmds(
+        query_file, evalue, output, subject_file, threads=1, algo=None,
+        protein_subject=False,
         reciprocal=False, logger=None):
     """given a file, make a blast cmd, and return path to output csv
     This should handle both protein and nucleotide references.
@@ -164,13 +188,12 @@ def make_prot_prot_blast_cmds(
     subjectdb = os.path.join(db_dir,
                              os.path.splitext(os.path.basename(subject_file))[0])
     first_record = SeqIO.parse(subject_file, "fasta").__next__()
+    DBNAME = "protdb" if protein_subject else "nucdb"
+    # logger.debug("Protein Subject: %s", PROTEIN_SUBJECT)
+    # logger.debug("Protein Query: %s", PROTEIN_QUERY)
     if not os.path.isdir(db_dir):
-        logger.info("Creating protein BLAST database")
+        logger.debug("Creating  BLAST database")
         os.makedirs(db_dir, exist_ok=False)
-        # I need a better way to check if subject is protein or nucl
-        # if (
-        #         first_record.seq.alphabet == IUPAC.IUPACProtein() or
-        #         first_record.seq.alphabet == IUPAC.SingleLetterAlphabet()):
         if protein_subject:
             setup_blast_db(input_file=subject_file,
                            input_type="fasta",
@@ -189,13 +212,46 @@ def make_prot_prot_blast_cmds(
         # run forward, nuc aganst prot, blast
         output_path_tab = os.path.join(
             output,
-            qname + "_vs_protdb.tab")
-        if protein_subject:
-            blast_cline = NcbiblastpCommandline(
+            qname + "_vs_" + DBNAME + ".tab")
+        # if PROTEIN_QUERY and PROTEIN_SUBJECT:
+        #     blast_cline = NcbiblastpCommandline(
+        #         query=f,
+        #         db=subjectdb, evalue=evalue, out=output_path_tab)
+        # elif not PROTEIN_QUERY and not PROTEIN_SUBJECT and algo == "tblastx":
+        #     blast_cline = NcbitblastxCommandline(
+        #         query=f,
+        #         db=subjectdb, evalue=evalue, out=output_path_tab)
+        # elif not PROTEIN_QUERY and not PROTEIN_SUBJECT and algo == "blastn":
+        #     blast_cline = NcbiblastnCommandline(
+        #         query=f,
+        #         db=subjectdb, evalue=evalue, out=output_path_tab)
+        # elif not PROTEIN_QUERY and PROTEIN_SUBJECT:
+        #     blast_cline = NcbiblastxCommandline(
+        #         query=f,
+        #         db=subjectdb, evalue=evalue, out=output_path_tab)
+        # elif PROTEIN_QUERY and not PROTEIN_SUBJECT:
+        #     blast_cline = NcbiblastxCommandline(
+        #         query=f,
+        #         db=subjectdb, evalue=evalue, out=output_path_tab)
+        if algo == "blastn":
+             blast_cline = NcbiblastnCommandline(
+                query=f,
+                db=subjectdb, evalue=evalue, out=output_path_tab)
+        elif algo == "tblastn":
+             blast_cline = NcbitblastnCommandline(
+                query=f,
+                db=subjectdb, evalue=evalue, out=output_path_tab)
+        elif algo == "blastp":
+             blast_cline = NcbiblastpCommandline(
+                query=f,
+                db=subjectdb, evalue=evalue, out=output_path_tab)
+        elif algo == "blastx":
+             blast_cline = NcbiblastxCommandline(
                 query=f,
                 db=subjectdb, evalue=evalue, out=output_path_tab)
         else:
-            blast_cline = NcbitblastnCommandline(
+            assert algo == "tblastx", "error parsing algrithm!"
+            blast_cline = NcbitblastxCommandline(
                 query=f,
                 db=subjectdb, evalue=evalue, out=output_path_tab)
         add_params = str(
@@ -209,7 +265,7 @@ def make_prot_prot_blast_cmds(
         # run reverse, prot against nuc, blast
         recip_output_path_tab = os.path.join(
             output,
-            "protdb_vs_" + qname + ".tab")
+            DBNAME + "_vs_" + qname + ".tab")
         if protein_subject:
             recip_blast_cline = NcbiblastpCommandline(
                 query=subject_file,
@@ -229,7 +285,7 @@ def make_prot_prot_blast_cmds(
     return(blast_cmds, blast_outputs, recip_blast_outputs)
 
 
-def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, reciprocal, logger=None):
+def filter_BLAST_df(df1, df2, algo, min_evalue, min_length_frac, min_id_percent, reciprocal, logger=None):
     """ results from pd.read_csv with default BLAST output 6 columns
     df1 must be genomes against genes, and df2 must be genes against genomes,
     because we have to split the names so all all the contigs are recognized
@@ -239,7 +295,11 @@ def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, recip
     logger.debug("shape of blast results")
     df1['genome'] = df1.query_id.str.split('_').str.get(0)
     logger.debug(df1.shape)
-
+    # here we
+    if algo in ["tblastn", "tblastx", "blastp"]:
+        CODON_ADJ = 3
+    else:
+        CODON_ADJ = 1
     # here we store the loci that fail filtering, so we can get the
     # subest of loci to include later
     bad_loci = []
@@ -264,15 +324,16 @@ def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, recip
                 (tempdf1["bit_score"] == tempdf1["bit_score"].max()) &
                 (tempdf1["evalue"] < min_evalue)]
             if subset1.empty:
-                logger.info("No full hits for %s", gene)
+                logger.debug("No full hits for %s", gene)
                 logger.debug(tempdf1)
                 bad_loci.append(gene)
-            elif all(subset1["alignment_length"] >= (subset1["subject_length"] * min_length_frac)):
+            elif all(
+                    (subset1["alignment_length"] * CODON_ADJ) >=
+                    (subset1["subject_length"] * min_length_frac)):
                 filtered = filtered.append(subset1)
             else:
                 bad_loci.append(gene)
         return(filtered, bad_loci)
-
 
     # recip structure
     filtered = pd.DataFrame(columns=df1.columns)
@@ -288,7 +349,7 @@ def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, recip
             tempdf2 = df2.loc[(df2["query_id"] == gene) &
                               (df2["genome"] == genome), ]
             if tempdf1.empty or tempdf2.empty:
-                logger.info("skipping %s in %s; no match found", gene, genome)
+                logger.debug("skipping %s in %s; no match found", gene, genome)
             else:
                 subset1 = tempdf1.loc[
                     (tempdf1["identity_perc"] > min_id_percent) &
@@ -302,7 +363,7 @@ def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, recip
                 logger.debug("grouped df2 shape: " )
                 logger.debug(tempdf2.shape)
                 if subset1.empty or subset2.empty:
-                    logger.info("No reciprocol hits for %s in %s", gene, genome)
+                    logger.debug("No reciprocol hits for %s in %s", gene, genome)
                     logger.debug(tempdf1)
                     logger.debug(tempdf2)
                     nonrecip_hits.append([gene, genome])
@@ -318,10 +379,10 @@ def filter_BLAST_df(df1, df2, min_evalue, min_length_frac, min_id_percent, recip
                     if subset1.iloc[0]["query_id"] == subset2.iloc[0]["subject_id"]:
                         recip_hits.append([gene, genome])
                         filtered = filtered.append(subset1)
-                        logger.info("Reciprocol hits for %s in %s!", gene, genome)
+                        logger.debug("Reciprocol hits for %s in %s!", gene, genome)
                     else:
                         nonrecip_hits.append([gene, genome])
-                        logger.info("No reciprocol hits for %s in %s", gene, genome)
+                        logger.debug("No reciprocol hits for %s in %s", gene, genome)
                         bad_loci.append(gene)
 
             # logger.debug(subset.shape)
@@ -383,16 +444,14 @@ def setup_blast_db(input_file, input_type="fasta", dbtype="prot",
     """
     if makeblastdb_exe == '':
         makeblastdb_exe = shutil.which("makeblastdb")
-        if logger:
-            logger.info("makeblastdb executable: %s", makeblastdb_exe)
+        logger.debug("makeblastdb executable: %s", makeblastdb_exe)
     makedbcmd = str("{0} -in {1} -input_type {2} -dbtype {3} " +
                     "-out {4}").format(makeblastdb_exe,
                                        input_file,
                                        input_type,
                                        dbtype,
                                        out)
-    if logger:
-        logger.info("Making blast db: {0}".format(makedbcmd))
+    logger.debug("Making blast db: {0}".format(makedbcmd))
     try:
         subprocess.run(makedbcmd, shell=sys.platform != "win32",
                        stdout=subprocess.PIPE,
@@ -401,9 +460,8 @@ def setup_blast_db(input_file, input_type="fasta", dbtype="prot",
             title, out))
         return 0
     except:
-        if logger:
-            logging.error("Something bad happened when trying to make " +
-                          "a blast database")
+        logging.error("Something bad happened when trying to make " +
+                      "a blast database")
         sys.exit(1)
 
 
@@ -443,8 +501,8 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
                 elif feat.qualifiers.get("locus_tag")[0] in approved_accessions:
                     newrec.features.append(feat)
                 else:
-                    logger.info(feat.qualifiers.get("locus_tag")[0] +
-                                " was rejected")
+                    logger.debug(feat.qualifiers.get("locus_tag")[0] +
+                                 " was rejected")
             newrecs.append(newrec)
     with open(new_genbank, "w") as outf:
         for nr in newrecs:
@@ -463,6 +521,8 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
     genes_dirpath = os.path.join(output_root, "query_genes")
     gene_queries = []
     os.makedirs(genes_dirpath)
+    TRANSLATE =  args.blast_algorithm in ["tblastn", "blastp"]
+    ext = ".faa" if TRANSLATE else ".fna"
     # for each record, get the first and the last feature that isnt a "source"
     logger.debug("writing out genes for blasting")
     with open(prokka_files.gbk, "r") as inf:
@@ -476,30 +536,33 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
                 if (args.full or FIRST or idx == nfeats - 1):
                     FIRST = False
                     gene = feat.extract(rec)
-                    try:
-                        gene.seq = gene.seq.translate()
-                    except BiopythonWarning as bpw:
-                        logger.warning(bpw)
+                    if TRANSLATE:
+                        try:
+                            gene.seq = gene.seq.translate()
+                        except BiopythonWarning as bpw:
+                            logger.warning(bpw)
                     try:
                         gene.id = feat.qualifiers.get("locus_tag")[0]
                     except TypeError:
                         logger.warning("Could not get a locus tag for the " +
                                        "following feature: %s", feat)
                     genepath = os.path.join(
-                        genes_dirpath, gene.id + ".faa" )
+                        genes_dirpath, gene.id + ext )
                     SeqIO.write(gene, genepath, "fasta")
                     gene_queries.append(genepath)
     commands, paths_to_outputs, paths_to_recip_outputs = [], [], []
     logger.debug("making blast commands")
+    blast_params = make_blast_params(algo=args.blast_algorithm)
     for query in gene_queries:
         pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
-            make_prot_prot_blast_cmds(
+            make_blast_cmds(
                 query_file=query,
                 evalue=args.min_evalue,
                 reciprocal=args.reciprocal,
                 subject_file=args.reference,
-                protein_subject=False,
+                protein_subject=blast_params[0],
                 threads=1,
+                algo=args.blast_algorithm,
                 output=output_root,
                 logger=logger)
         commands.extend(pcommands),
@@ -510,7 +573,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
 
 def get_genome_blast_cmds(output_root, prokka_files, args, logger=None):
     commands, paths_to_outputs, paths_to_recip_outputs = \
-        make_prot_prot_blast_cmds(
+        make_blast_cmds(
             query_file=prokka_files.faa,
             evalue=args.min_evalue,
             reciprocal=args.reciprocal,
@@ -518,6 +581,7 @@ def get_genome_blast_cmds(output_root, prokka_files, args, logger=None):
             protein_subject=True,
             threads=args.threads,
             output=output_root,
+            algo=args.blast_algorithm,
             logger=logger)
     return (commands, paths_to_outputs, paths_to_recip_outputs)
 
@@ -543,10 +607,9 @@ def main(args=None, logger=None):
     logger.debug("processing prokka output")
     prokka_files = make_prokka_files_object(args.prokka_dir)
     # check only selected the genes for completeness
-    logger.debug("get list of locus tags from assembly")
+    logger.info("Making list of all locus tags in assembly")
     all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
-
-
+    logger.info("Generating BLAST commands")
     if not args.local_quick and args.full:
         # build blast command using prokka faa as query
         commands, paths_to_outputs, paths_to_recip_outputs = \
@@ -566,9 +629,10 @@ def main(args=None, logger=None):
     logger.debug("writing out blast commands for reference")
     with open(os.path.join(output_root, "blast_cmds.txt"), "w") as outf:
         for c in commands:
-            outf.write(c)
+            outf.write(c + "\n")
     logger.debug("paths to outputs:" )
     logger.debug(paths_to_outputs )
+    logger.info("Running BLAST commands")
     if not args.sge:
         pool = multiprocessing.Pool(processes=args.threads)
         logger.debug("Running the following commands in parallel " +
@@ -588,6 +652,7 @@ def main(args=None, logger=None):
         reslist.append([r.get() for r in results])
     else:
         raise ValueError("SGE scheduling no yet implemented!")
+    logger.info("Consolidating BLAST outputs")
     merged_tab = merge_outfiles(filelist=paths_to_outputs,
                                 outfile_name=os.path.join(
                                     output_root, "merged_results.tab"))
@@ -604,6 +669,7 @@ def main(args=None, logger=None):
     filtered_hits, bad_loci = filter_BLAST_df(
         df1=resultsdf,
         df2=recip_resultsdf,
+        algo=args.blast_algorithm,
         reciprocal=args.reciprocal,
         min_evalue=args.min_evalue,
         min_id_percent=args.min_id_percent,
@@ -612,6 +678,7 @@ def main(args=None, logger=None):
 
     good_loci = [x for x in all_loci if x not in bad_loci]
     # write out a .gbk file that lacks the genes deemed "bad" (truncated, etc)
+    logger.info("Writing out filtered Genbank file")
     make_new_genbank(
         genbank=prokka_files.gbk,
         new_genbank=os.path.join(
@@ -634,20 +701,24 @@ def main(args=None, logger=None):
         output_root,
         prokka_files.prefix + "_filtered.gff")
     logger.debug("writing filtered gff to %s", newgff)
-    filter_cmd = make_filter_gff_cmd(
-        gff=prokka_files.gff,
-        baddies=baddies_file,
-        newgff=newgff)
+    if len(bad_loci) == 0:
+        filter_cmd = "cp {0} {1}".format(prokka_files.gff, newgff)
+    else:
+        filter_cmd = make_filter_gff_cmd(
+            gff=prokka_files.gff,
+            baddies=baddies_file,
+            newgff=newgff)
+    logger.info("Creating filtered GFF files")
     subprocess.run(filter_cmd,
                    shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
-    sys.stderr.write("Total\tKept\tLost\n")
+    logger.info("Total: {0}\tKept: {1}\tLost: {2}".format(
+        len(all_loci), len(good_loci), len(bad_loci)))
     sys.stdout.write("{0}\t{1}\t{2}\n".format(
         len(all_loci), len(good_loci), len(bad_loci)))
-    sys.stderr.write("{0}\t{1}\t{2}\n".format(
-        len(all_loci), len(good_loci), len(bad_loci)))
     logger.debug("Done!")
+
 
 if __name__ == "__main__":
     main()
