@@ -127,6 +127,8 @@ class annofilt(unittest.TestCase):
             os.path.join(self.test_dir, "output", "PROKKA"))
         # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
 
+    @unittest.skipIf(shutil.which("makeblastdb") is None,
+                     "blast executables not found; skipping test"
     def test_get_genewise_blast_cmds(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
         args=Namespace(min_evalue=1, reciprocal=False,
