@@ -187,7 +187,7 @@ def make_blast_params(algo):
 
 def make_blast_cmds(
         query_file, evalue, output, subject_file, threads=1, algo=None,
-        protein_subject=False,
+        protein_subject=False, makedb=False,
         reciprocal=False, logger=None):
     """given a file, make a blast cmd, and return path to output csv
     This should handle both protein and nucleotide references.
@@ -201,7 +201,7 @@ def make_blast_cmds(
     DBNAME = "protdb" if protein_subject else "nucdb"
     # logger.debug("Protein Subject: %s", PROTEIN_SUBJECT)
     # logger.debug("Protein Query: %s", PROTEIN_QUERY)
-    if not os.path.isdir(db_dir):
+    if makedb:
         logger.debug("Creating  BLAST database")
         os.makedirs(db_dir, exist_ok=False)
         if protein_subject:
@@ -563,7 +563,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
     commands, paths_to_outputs, paths_to_recip_outputs = [], [], []
     logger.debug("making blast commands")
     blast_params = make_blast_params(algo=args.blast_algorithm)
-    for query in gene_queries:
+    for idx, query in enumerate(gene_queries):
         pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
             make_blast_cmds(
                 query_file=query,
@@ -572,6 +572,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
                 subject_file=args.reference,
                 protein_subject=blast_params[0],
                 threads=1,
+                makedb=idx==0,
                 algo=args.blast_algorithm,
                 output=output_root,
                 logger=logger)
@@ -591,6 +592,7 @@ def get_genome_blast_cmds(output_root, prokka_files, args, logger=None):
             protein_subject=True,
             threads=args.threads,
             output=output_root,
+            makedb=True,
             algo=args.blast_algorithm,
             logger=logger)
     return (commands, paths_to_outputs, paths_to_recip_outputs)

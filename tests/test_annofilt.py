@@ -111,7 +111,7 @@ class annofilt(unittest.TestCase):
     def test_blast_cmds(self):
         self.maxDiff =None
         cmds, opaths, ropaths = af.make_blast_cmds(
-            query_file = "query.fa", subject_file = self.ref_faa,
+            query_file = "query.fa", subject_file = self.ref_faa, makedb=False,
             evalue=1, output=self.test_dir, threads=3, algo="tblastn",
             reciprocal=False, protein_subject=False, logger=logger)
         self.assertEqual(
@@ -125,8 +125,8 @@ class annofilt(unittest.TestCase):
             "gapopen qstart qend sstart send evalue bitscore slen'")
         self.to_be_removed.extend(glob.glob(os.path.join(
             self.test_dir, "PROKKA", "*")))
-        self.to_be_removed.append(
-            os.path.join(self.test_dir, "PROKKA"))
+        # self.to_be_removed.append(
+        #     os.path.join(self.test_dir, "PROKKA"))
         # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
 
     # @unittest.skipIf(shutil.which("makeblastdb") is None,
