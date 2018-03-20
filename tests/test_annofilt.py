@@ -108,28 +108,30 @@ class annofilt(unittest.TestCase):
             "grep gff -f yuk -v > ohboy"
         )
 
-    def tet_blast_cmds(self):
+    def test_blast_cmds(self):
+        self.maxDiff =None
         cmds, opaths, ropaths = af.make_blast_cmds(
             query_file = "query.fa", subject_file = self.ref_faa,
-            evalue=1, output=self.test_dir + "/output/", threads=3,
+            evalue=1, output=self.test_dir, threads=3, algo="tblastn",
             reciprocal=False, protein_subject=False, logger=logger)
         self.assertEqual(
             cmds[0],
-            "tblasn -out " +
+            "tblastn -out " +
             self.test_dir +
-            "/output/query_vs_protdb.tab -query query.fa -db " +
+            "/query_vs_nucdb.tab -query query.fa -db " +
             self.test_dir +
-            "/output/PROKKA/PROKKA -evalue 1 -num_threads 3 -num_alignments " +
+            "/PROKKA/PROKKA -evalue 1 -num_threads 3 -num_alignments " +
             "20 -outfmt '6 qaccver saccver pident length mismatch " +
             "gapopen qstart qend sstart send evalue bitscore slen'")
         self.to_be_removed.extend(glob.glob(os.path.join(
-            self.test_dir, "output", "PROKKA", "*")))
+            self.test_dir, "PROKKA", "*")))
         self.to_be_removed.append(
-            os.path.join(self.test_dir, "output", "PROKKA"))
+            os.path.join(self.test_dir, "PROKKA"))
         # self.to_be_removed.append(os.path.join(self.test_dir, "output"))
 
-    @unittest.skipIf(shutil.which("makeblastdb") is None,
-                     "blast executables not found; skipping test")
+    # @unittest.skipIf(shutil.which("makeblastdb") is None,
+    #                  "blast executables not found; skipping test")
+    # if we point this to an existing dir, no need for make blast db
     def test_get_genewise_blast_cmds(self):
         file_ob = af.make_prokka_files_object(self.data_dir)
         args=Namespace(min_evalue=1, reciprocal=False,

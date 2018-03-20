@@ -1,4 +1,4 @@
-
+[![Build Status](https://travis-ci.org/nickp60/annofilt.svg?branch=master)](https://travis-ci.org/nickp60/annofilt)[![Coverage Status](https://coveralls.io/repos/github/nickp60/annofilt/badge.svg?branch=master)](https://coveralls.io/github/nickp60/annofilt?branch=master)
 ```
 #get a subset of Complete e coli to analyze
 Rscript ../riboSeed/scripts/getCompleteGenomeSubset.R /home/nicholas/GitHub/riboSeed/manuscript_results/entropy/assembly_summary.txt ./colis/ Escherichia coli
