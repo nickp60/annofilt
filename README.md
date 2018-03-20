@@ -37,14 +37,15 @@ for gene in assembly:
 
 # Building a reference pangenome of trusted genes
 To verify the length of annotated genes, we compare annotation length, alignement coverage, and evalue to a pangenme built of well-currated annotations for a given strain.  To build a pangenome for your strain of interest, do the following:
+
 1. Download as many complete genomes (in gff format) from RefSeq as desired (minimum of 10?, maybe?)
 2. Run Roary.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%)
 3. Move the `pan_genome_reference.fa` file to a convenient location for use with annofilt.  This contains a representative nucleotide sequences for each gene in the core.
 
 # Running
 `annofilt` has three modes:
-1 *Normal* (fastest) - check annotations at the beginning and end of contigs
-2 *--local_quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
+1. *Normal* (fastest) - check annotations at the beginning and end of contigs
+2. *--local_quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
 3. *--full* (slowest) - genes are blasted individually; this gives more control with job hanndling (future versions will hopefully work with SGE, slurm, etc.)
 
 # Quick Start
