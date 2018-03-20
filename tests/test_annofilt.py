@@ -139,7 +139,7 @@ class annofilt(unittest.TestCase):
                        threads=1, reference=self.ref_pangenome, full=False)
         commands, paths_to_outputs, paths_to_recip_outputs = \
             af.get_genewise_blast_cmds(output_root=self.test_dir, prokka_files=file_ob,
-                               args=args, logger=logger)
+                                       args=args, debug=True, logger=logger)
         self.to_be_removed.extend(glob.glob(os.path.join(
             self.test_dir, "query_genes", "*")))
         self.to_be_removed.append(

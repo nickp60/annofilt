@@ -527,7 +527,7 @@ def make_filter_gff_cmd(gff, baddies, newgff):
     return "grep {0} -f {1} -v > {2}".format(gff, baddies, newgff)
 
 
-def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
+def get_genewise_blast_cmds(output_root, prokka_files, args, debug=False, logger=None):
     genes_dirpath = os.path.join(output_root, "query_genes")
     gene_queries = []
     os.makedirs(genes_dirpath)
@@ -572,7 +572,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, logger=None):
                 subject_file=args.reference,
                 protein_subject=blast_params[0],
                 threads=1,
-                makedb=idx==0,
+                makedb=idx==0 and not debug,
                 algo=args.blast_algorithm,
                 output=output_root,
                 logger=logger)
