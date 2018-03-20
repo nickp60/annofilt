@@ -13,3 +13,27 @@ script:
 - python setup.py install
 - nosetests --with-coverage --cover-package=annofilt tests -v
 after_success: coveralls
+
+
+jobs:
+  include:
+    - stage: test-deploy
+      script: echo "Deploying to TestPyPi"
+      provider: pypi
+      user: NickWaters
+      server: https://test.pypi.org/legacy/
+      password:
+        secure: "LHsjR4RXV6EnhzEHwWAZclqSIrEnoghI0udyE2Jl8/GGu9S2Eixqt+RPimOZubnLjSBc0i/iBtOcr0tj/5T9Q0uPRrbAqZDLzu8ZVpMHmWkpx8IEfmIAKktyGa2bYKEJeGRv/9hJhjC4TZQzjEXGDCs9LOuM66Q44s9dXhHg0zkrnFpavM7u4B0ihdvzXoqmEzrnFSlNBbKzJBmcsIBtemEoVHI2wV/KGjqxEzIxqAFxewCSrXIP74hPJ7IUI23hYzXJcN99R80OLPiPjy+csxCpNQH141eEDsA5mtcbdTWFVGjc3RMd3nhN1l5sAHiEceACpfK8XiVVPzUBJGGEWcazbC0DascRH6WGm4RjYYVapG0+lDFXBmS7efTC5NIet21m5KGTqet3LnAdf9DjNOBBDt4eBPNjSPlj6b2oeirtlxS2SZAMN0phHsW/i6PkUAS5Y6kxrqFPmHZ4YyH7YQiEkYUEcF80RS3nhPH/ZxlI8z25083c2yazY8uV8xVTiPkIDhWl3DeOwGd8FMCAUc/Sb4bhrHB+BZ7YCjUXB+xLiX6gCzfDLypaEhDeWSw0IPbPGrG4wsZ4CzhE904nJ+4fK+tq6deZTo6afIUl/S/wikybUybWbjhRnOkrWktPP4UTG5NG28K71HP0vGV+BWlZ+sjeynlhAcFUWJBP3Cg="
+    - stage: deploy
+      script: echo "Deploying to PyPi"
+      deploy:
+        provider: pypi
+        user: NickWaters
+        password:
+	  secure: "cd5KZbKUuaRLAjuh2+C4jfsQnN2SHVWSP2YjY6FhozghtVB0q32nr4iP3M6NXXW4pj1teXq2LBs1OPkmJEY1pEiBeTmtpesSMuhmllnjI9xTa7PQZL+7CprED2j90tDs9HKExtil7lYsA62lhpZvhg71wasw8YIje6SMJeVQVFjeTuAEI+gTtsewiEkOqGjDpm7829sQMUg1XyDNAbtQh+IMcriHa+4dhOXRCgL66vTXY0qfT6+637z82ArOQ7Xco5LtPap9QFe8S+F6xaVAIHQAfsULwqZ5UjTdpzQTyLx8stbL0MahR+cXvdqYcrY3b7ZKFGPRxGkY/EeOQ5T99uOhflx+E/sc5olj/4bODG+gJaPGpHe3m1K5Oe1P+x5IXlr34s2gLGxp3QHAxUWsttfVjSb+G+C0rt9ODLnXwkfPY7grvqw194vnuhDvG+SVM/xfq+wKAq5dAhgLDeIU9SudCx84ZKRggheQiPEKUGJ+BHacB5aItweCTXgS7ohyjvE9qXFhhsnh0CReYe0EcQKZQD3NhhluFG8Ab4/h1OR9y0opyIpmxn8w91r94VTChod5OeqdLccLJdDAnoK+Ut1XuUvDT1bKokho+UBDzQGOTO0gCk3OMyK2aSuTUBNlpPHvPQUPMugB+rlQDlLzImdG/8AVwdV0OcBVZQkzXA0="
+        on:
+          tags: true
+
+stages:
+  allow_failures:
+    - test-deploy
