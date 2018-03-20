@@ -37,9 +37,9 @@ for gene in assembly:
 
 # Building a reference pangenome of trusted genes
 To verify the length of annotated genes, we compare annotation length, alignement coverage, and evalue to a pangenme built of well-currated annotations for a given strain.  To build a pangenome for your strain of interest, do the following:
-1: Download as many complete genomes (in gff format) from RefSeq as desired (minimum of 10?, maybe?)
-2: Run Roary.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%)
-3: Move the `pan_genome_reference.fa` file to a convenient location for use with annofilt.  This contains a representative nucleotide sequences for each gene in the core.
+1. Download as many complete genomes (in gff format) from RefSeq as desired (minimum of 10?, maybe?)
+2. Run Roary.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%)
+3. Move the `pan_genome_reference.fa` file to a convenient location for use with annofilt.  This contains a representative nucleotide sequences for each gene in the core.
 
 # Running
 `annofilt` has three modes:
@@ -58,9 +58,9 @@ annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./a
 ```
 
 # Results files
-- all_loci, good_loci, bad_loci - these are newline-delimited files containing all locus tags, those passing the user thresholds, and those failing to pass the thresholds, respectively.
-- blast_cmds - text file contatining BLAST commands used
-- meerged_results.tab - tab-delimitted file containing all blast results before filtering
-- filtered_hits.csv - comma-delimitted file containing all blast results after filtering
-- *x*.gbk - GenBank file containing annotations for genes passing thresholds
-- *x*.gff - gff3 file containing annotations for genes passing thresholds, for use with Roary
+- `all_loci.txt`, `good_loci.txt`, `bad_loci.txt` - these are newline-delimited files containing all locus tags, those passing the user thresholds, and those failing to pass the thresholds, respectively.
+- `blast_cmds` - text file contatining BLAST commands used
+- `merged_results.tab` - tab-delimitted file containing all blast results before filtering
+- `filtered_hits.csv` - comma-delimitted file containing all blast results after filtering
+- `*x*.gbk` - GenBank file containing annotations for genes passing thresholds
+- `*x*.gff` - gff3 file containing annotations for genes passing thresholds, for use with Roary
