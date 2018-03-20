@@ -22,7 +22,7 @@ prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli
 Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
 
 # The Solution
-`annofilt` is used to filter annotations that appear to be truncated, based on a pangenome of closed genomes.  the algorithm proceeds as follows:
+`annofilt` is used to filter annotations that appear to be truncated, based on BLAST comparison with a pangenome generated from closed genomes.  Briefly, the algorithm proceeds as follows:
 
 
 ```
@@ -44,8 +44,8 @@ To verify the length of annotated genes, we compare annotation length, alignemen
 # Running
 `annofilt` has three modes:
 1 *Normal* (fastest) - check annotations at the beginning and end of contigs
-2 *Local-quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
-3. *Full* (slowest) - genes are blasted individually; this gives more control with job hanndling (future versions will hopefully work with SGE, slurm, etc.)
+2 *--local_quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
+3. *--full* (slowest) - genes are blasted individually; this gives more control with job hanndling (future versions will hopefully work with SGE, slurm, etc.)
 
 # Quick Start
 
@@ -54,5 +54,13 @@ To verify the length of annotated genes, we compare annotation length, alignemen
 The test data contains a pangenome of 11 *E. coli* genomes, as well as a complete genome annotated with Prokka, and a toy genome assembly also annotated with Prokka.  To run `annofilt` with the test data, run the following command:
 
 ```
-annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./annofilt_test_data_archive/assembly_sample/ -o out -v 1
+annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./annofilt_test_data_archive/assembly_sample/ -o outdir -v 1
 ```
+
+# Results files
+- all_loci, good_loci, bad_loci - these are newline-delimited files containing all locus tags, those passing the user thresholds, and those failing to pass the thresholds, respectively.
+- blast_cmds - text file contatining BLAST commands used
+- meerged_results.tab - tab-delimitted file containing all blast results before filtering
+- filtered_hits.csv - comma-delimitted file containing all blast results after filtering
+- *x*.gbk - GenBank file containing annotations for genes passing thresholds
+- *x*.gff - gff3 file containing annotations for genes passing thresholds, for use with Roary

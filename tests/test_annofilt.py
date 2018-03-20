@@ -18,7 +18,7 @@ logger = logging
                  "Subprocess.call among other things wont run if tried " +
                  " with less than python 3.5")
 class annofilt(unittest.TestCase):
-    """ tests for riboSeed.py
+    """ tests for annofilt.py
     """
     def setUp(self):
         self.test_dir = os.path.join(os.path.dirname(__file__),
@@ -176,6 +176,30 @@ class annofilt(unittest.TestCase):
         self.assertEqual(filt_evalue[0].shape[0], 2)
         self.assertEqual(len(filt_evalue[1]), 0)
 
+    def test_make_blast_params_blastn(self):
+        self.assertEqual(af.make_blast_params("blastn"),
+                         #subject, query
+                         (False, False))
+
+    def test_make_blast_params_tblastn(self):
+        self.assertEqual(af.make_blast_params("tblastn"),
+                         #subject, query
+                         (False, True))
+
+    def test_make_blast_params_blastp(self):
+        self.assertEqual(af.make_blast_params("blastp"),
+                         #subject, query
+                         (True, True))
+
+    def test_make_blast_params_blastx(self):
+        self.assertEqual(af.make_blast_params("blastx"),
+                         #subject, query
+                         (True, False))
+
+    def test_make_blast_params_tblastx(self):
+        self.assertEqual(af.make_blast_params("blastn"),
+                         #subject, query
+                         (False, False))
 
     def tearDown(self):
         """ delete temp files if no errors

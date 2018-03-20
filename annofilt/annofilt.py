@@ -50,29 +50,38 @@ def get_args(): #pragma nocover
         help="output dir", required=True)
     optional = parser.add_argument_group('optional arguments')
     optional.add_argument(
-        "--full", dest="full",
+        "--full",
+        dest="full",
         action="store_true",
         help="check ALL genes for completeness, not just on ends of contigs." +
         " This is much slower.")
     optional.add_argument(
-        "--local_quick", dest="local_quick",
+        "--local_quick",
+        dest="local_quick",
         action="store_true",
         help="blast using prokkas' protein fasta;  can speed up preformance " +
         "by avoiding writing out genes to separate files, but this is " +
         "less efficient to paralellize")
     optional.add_argument(
         "-r",
-        "--reciprocal", dest="reciprocal",
+        "--reciprocal",
+        dest="reciprocal",
         action="store_true",
         help="reciprocal blast for stringent checking")
     optional.add_argument(
         "-p",
-        "--min_id_percent", dest="min_id_percent",
-        help="minimum percentage id (1-100)", type=float, default=85)
+        "--min_id_percent",
+        dest="min_id_percent",
+        help="minimum percentage id (1-100)",
+        type=float,
+        default=90)
     optional.add_argument(
         "-l",
-        "--min_length", dest="min_length_frac",
-        help="minimum percentage length (0-1)", type=float, default=.9)
+        "--min_length",
+        dest="min_length_frac",
+        help="minimum percentage length (0-1)",
+        type=float,
+        default=.9)
     optional.add_argument(
         "-e",
         "--min_evalue",
@@ -164,7 +173,9 @@ def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
     # usually a CDS and gene/tRNA/rRNA entry for each thing
     return list(set(lt_list))
 
+
 def make_blast_params(algo):
+    # ensure figure out which type of fasta each seach scheme needs
     PROTEIN_SUBJECT = True
     PROTEIN_QUERY = True
     if algo in ["tblastn", "blastn", "tblastx"]:
@@ -172,7 +183,6 @@ def make_blast_params(algo):
     if algo in ["tblastx", "blastx", "blastn"]:
         PROTEIN_QUERY = False
     return (PROTEIN_SUBJECT, PROTEIN_QUERY)
-
 
 
 def make_blast_cmds(
@@ -598,7 +608,7 @@ def main(args=None, logger=None):
         sys.stderr.write("Output Directory already exists!\n")
         sys.exit(1)
     if logger is None:
-        logger = set_up_logging(outfile=os.path.join(output_root, "log.log"),
+        logger = set_up_logging(outfile=os.path.join(output_root, "annofilt.log"),
                             name="annofilt", verbosity=args.verbosity)
     logger.debug("All settings used:")
     for k, v in sorted(vars(args).items()):
@@ -622,7 +632,7 @@ def main(args=None, logger=None):
         # if full, all the genes, else just the 1rst and last)
         commands, paths_to_outputs, paths_to_recip_outputs = \
             get_genewise_blast_cmds(
-                output_root=output_root,
+                output_root=os.path.join(output_root, "BLAST_results"),
                 prokka_files=prokka_files,
                 args=args, logger=logger)
 
@@ -715,8 +725,8 @@ def main(args=None, logger=None):
                    stderr=subprocess.PIPE, check=True)
     logger.info("Total: {0}\tKept: {1}\tLost: {2}".format(
         len(all_loci), len(good_loci), len(bad_loci)))
-    sys.stdout.write("{0}\t{1}\t{2}\n".format(
-        len(all_loci), len(good_loci), len(bad_loci)))
+    sys.stdout.write("{0}\t{1}\t{2}\t{3}\n".format(
+        prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
     logger.debug("Done!")
 
 
