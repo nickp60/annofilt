@@ -82,23 +82,23 @@ class annofilt(unittest.TestCase):
 
     def test_return_list_of_locus_tags_gbk(self):
         self.assertEqual(
-            len(af.return_list_of_locus_tags(gbk=self.ref_gb)),
+            len(af.return_list_of_locus_tags(gbk=self.ref_gb)[0]),
             89)
         self.assertEqual(
-            len(af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)),
+            len(af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)[0]),
             65)
 
     def test_return_list_of_locus_tags_faa(self):
         self.assertEqual(
-            len(af.return_list_of_locus_tags(faa=self.ref_faa)),
+            len(af.return_list_of_locus_tags(faa=self.ref_faa)[0]),
             65)
 
     def test_return_list_of_locus_tags_both(self):
         """ we know this fails;
         the faa file only has proteins, while the gbk file has all annotations
         """
-        gbkl = af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)
-        faal = af.return_list_of_locus_tags(faa=self.ref_faa)
+        gbkl, nrecsg = af.return_list_of_locus_tags(gbk=self.ref_gb, cds_only=True)
+        faal, nrecsf = af.return_list_of_locus_tags(faa=self.ref_faa)
         for i in range(len(gbkl)):
             self.assertEqual(gbkl[i], faal[i])
 

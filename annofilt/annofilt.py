@@ -153,9 +153,11 @@ def make_prokka_files_object(prokka_dir):
 
 def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
     lt_list = []
+    nrecs = 0
     if gbk is not None:
         with open(gbk, "r") as inf:
             for rec in SeqIO.parse(inf, "genbank"):
+                nrecs = nrecs + 1
                 for feat in rec.features:
                     if feat.type != "CDS" and cds_only:
                         continue
@@ -171,7 +173,7 @@ def return_list_of_locus_tags(gbk=None, faa=None, cds_only=False):
                 lt_list.append(rec.id)
     # we return a list after getting the unique entries, as there is
     # usually a CDS and gene/tRNA/rRNA entry for each thing
-    return list(set(lt_list))
+    return (list(set(lt_list)), nrecs)
 
 
 def make_blast_params(algo):
@@ -506,13 +508,17 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
             newrec = copy.deepcopy(rec)
             newrec.features = []
             for idx, feat in enumerate(rec.features):
-                if feat.type in ["source", "repeat_region"]:
-                    continue
-                elif feat.qualifiers.get("locus_tag")[0] in approved_accessions:
-                    newrec.features.append(feat)
-                else:
-                    logger.debug(feat.qualifiers.get("locus_tag")[0] +
-                                 " was rejected")
+                try:
+                    if feat.type in ["source", "repeat_region", "assembly_gap"]:
+                        continue
+                    elif feat.qualifiers.get("locus_tag")[0] in approved_accessions:
+                        newrec.features.append(feat)
+                    else:
+                        logger.debug(feat.qualifiers.get("locus_tag")[0] +
+                                     " was rejected")
+                except TypeError as e:
+                    logger.error(feat)
+                    raise(e)
             newrecs.append(newrec)
     with open(new_genbank, "w") as outf:
         for nr in newrecs:
@@ -541,7 +547,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, debug=False, logger
             logger.debug("found %d features on %s", nfeats, rec.id)
             FIRST = True
             for idx, feat in enumerate(rec.features):
-                if feat.type in ["source", "repeat_region"]:
+                if feat.type in ["source", "repeat_region", "assembly_gap"]:
                     continue
                 if (args.full or FIRST or idx == nfeats - 1):
                     FIRST = False
@@ -620,7 +626,7 @@ def main(args=None, logger=None):
     prokka_files = make_prokka_files_object(args.prokka_dir)
     # check only selected the genes for completeness
     logger.info("Making list of all locus tags in assembly")
-    all_loci = return_list_of_locus_tags(gbk=prokka_files.gbk)
+    all_loci, nrecs = return_list_of_locus_tags(gbk=prokka_files.gbk)
     logger.info("Generating BLAST commands")
     if not args.local_quick and args.full:
         # build blast command using prokka faa as query
@@ -725,10 +731,10 @@ def main(args=None, logger=None):
                    shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
-    logger.info("Total: {0}\tKept: {1}\tLost: {2}".format(
-        len(all_loci), len(good_loci), len(bad_loci)))
-    sys.stdout.write("{0}\t{1}\t{2}\t{3}\n".format(
-        prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
+    logger.info("Total from {3} contigs: {0}\tKept: {1}\tLost: {2}".format(
+        len(all_loci), len(good_loci), len(bad_loci), nrecs))
+    sys.stdout.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(
+        nrecs, prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
     logger.debug("Done!")
 
 
