@@ -118,6 +118,11 @@ def get_args(): #pragma nocover
         help="only deal with the genes; default is to deal with " +
         "anything that has a locus tag")
     optional.add_argument(
+        "--stringent",
+        dest="stringent",
+        action="store_true",
+        help="reject genes with no blast hits")
+    optional.add_argument(
         "-v",
         "--verbosity",
         dest='verbosity', action="store",
@@ -313,8 +318,10 @@ def filter_BLAST_df(df1, df2, algo, min_evalue, min_length_frac, min_id_percent,
     else:
         CODON_ADJ = 1
     # here we store the loci that fail filtering, so we can get the
-    # subest of loci to include later
+    # subest of loci to exclude later
     bad_loci = []
+    # subest of loci to lacking blast hits
+    nohit_loci = []
 
     if reciprocal:
         logger.debug("shape of recip blast results")
@@ -331,11 +338,15 @@ def filter_BLAST_df(df1, df2, algo, min_evalue, min_length_frac, min_id_percent,
             logger.debug("scoring %s" % (gene))
             tempdf1 = df1.loc[(df1["query_id"] == gene), ]
             # here we get the best hit (the one maximizing e value)
+            if tempdf1.empty:
+                # no hit was found in the pangenome; lets be conservative and ignore it
+                nohit_loci.append(gene)
+                continue
             subset1 = tempdf1.loc[
                 (tempdf1["identity_perc"] > min_id_percent) &
                 (tempdf1["bit_score"] == tempdf1["bit_score"].max()) &
                 (tempdf1["evalue"] < min_evalue)]
-            if subset1.empty:
+            if subset1.empty: 
                 logger.debug("No full hits for %s", gene)
                 logger.debug(tempdf1)
                 bad_loci.append(gene)
@@ -345,7 +356,7 @@ def filter_BLAST_df(df1, df2, algo, min_evalue, min_length_frac, min_id_percent,
                 filtered = filtered.append(subset1)
             else:
                 bad_loci.append(gene)
-        return(filtered, bad_loci)
+        return(filtered, bad_loci, nohit_loci)
 
     # recip structure
     filtered = pd.DataFrame(columns=df1.columns)
@@ -573,7 +584,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args, debug=False, logger
         pcommands, ppaths_to_outputs, ppaths_to_recip_outputs = \
             make_blast_cmds(
                 query_file=query,
-                evalue=args.min_evalue,
+                evalue=1,
                 reciprocal=args.reciprocal,
                 subject_file=args.reference,
                 protein_subject=blast_params[0],
@@ -592,7 +603,7 @@ def get_genome_blast_cmds(output_root, prokka_files, args, logger=None):
     commands, paths_to_outputs, paths_to_recip_outputs = \
         make_blast_cmds(
             query_file=prokka_files.faa,
-            evalue=args.min_evalue,
+            evalue=1,
             reciprocal=args.reciprocal,
             subject_file=args.reference,
             protein_subject=True,
@@ -684,7 +695,7 @@ def main(args=None, logger=None):
     else:
         recip_resultsdf = None
 
-    filtered_hits, bad_loci = filter_BLAST_df(
+    filtered_hits, bad_loci, nohit_loci = filter_BLAST_df(
         df1=resultsdf,
         df2=recip_resultsdf,
         algo=args.blast_algorithm,
@@ -693,8 +704,10 @@ def main(args=None, logger=None):
         min_id_percent=args.min_id_percent,
         min_length_frac=args.min_length_frac,
         logger=logger)
-
-    good_loci = [x for x in all_loci if x not in bad_loci]
+    if args.stringent:
+        good_loci = [x for x in all_loci if x not in bad_loci.extend(nohit_loci)]
+    else:
+        good_loci = [x for x in all_loci if x not in bad_loci]
     # write out a .gbk file that lacks the genes deemed "bad" (truncated, etc)
     logger.info("Writing out filtered Genbank file")
     make_new_genbank(
@@ -714,6 +727,9 @@ def main(args=None, logger=None):
     with open(os.path.join(output_root, "good_loci.txt"), "w") as outf:
         for loci in good_loci:
             outf.write(loci + "\n")
+    with open(os.path.join(output_root, "nohit_loci.txt"), "w") as outf:
+        for loci in nohit_loci:
+            outf.write(loci + "\n")
 
     newgff = os.path.join(
         output_root,
@@ -731,10 +747,19 @@ def main(args=None, logger=None):
                    shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
-    logger.info("Total from {3} contigs: {0}\tKept: {1}\tLost: {2}".format(
-        len(all_loci), len(good_loci), len(bad_loci), nrecs))
-    sys.stdout.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(
-        nrecs, prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
+    if args.stringent:
+        logger.info("%i genes lacked any BLAST hits, and will be rejected", len(nohit_loci))
+        logger.info("Total from %i contigs: %i\tKept: %i\tLost: %i",
+                    nrecs, len(all_loci), len(good_loci), len(bad_loci) + len(nohit_loci))
+        sys.stdout.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(
+            nrecs, prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci) + len(nohit_loci)))
+    else:
+        logger.info("%s genes lacked any BLAST hits, and were retained", len(nohit_loci))
+        logger.info("Total from %i contigs: %i\tKept: %i\tLost: %i",
+                    nrecs, len(all_loci), len(good_loci), len(bad_loci))
+        sys.stdout.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(
+            nrecs, prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
+        
     logger.debug("Done!")
 
 
