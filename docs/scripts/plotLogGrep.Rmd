@@ -1,0 +1,163 @@
+---
+title: "Assessing affect of annofilt on E. coli annotations"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+```
+annofilt is designed to remove dubiously annotated genes from the end of assembly contigs.  After it was run on our collection of 149 soil *E. coli* and the 1300 enteric *E. coli*.  Afterwards, the results were combined into a single file using the following hack:
+
+```{bash, eval=FALSE}
+# Make the input file from a bunch of runs
+for i in annofilt_prokka_outputs/*/annofilt.log
+  do
+    # get the line that logs the output
+    line=`cat ${i} | grep "Total from"`
+    echo $i $line >> logs.logs
+done
+```
+
+We read in the ugly file, and make a dataframe from the relevent columns:
+```{r}
+data <- read.table("../data/logs.logs" ,skip = 6)
+file <- as.character(gsub(".*/(.*?)/annofilt.log", "\\1", data[, 1]))
+contigs <- as.numeric(data[, 9])
+total <- as.numeric(data[, 11])
+kept <- as.numeric(data[, 13])
+lost <- as.numeric(data[, 15])
+wide <- data.frame(file, contigs, total, kept, lost)
+str(wide)
+```
+
+Now, lets calculate the genes searched (one from each end of each contig), the genes retained, and the percent retained. Also, for fun, let's mark which ones are our soil isolates and which are from Enterobase.
+
+
+```{r}
+wide <- wide %>%
+  mutate(pool = as.factor(ifelse(grepl("Lys\\d*", file), "Soil", "Enterobase"))) %>%
+  group_by(file) %>%
+  mutate(genes_searched = contigs * 2,
+         genes_searched_kept = genes_searched - lost,
+         percent_rejected = 1 - (genes_searched_kept / genes_searched)
+         ) %>%
+  as.data.frame()
+
+# and lets make a within_group "id" to identify them later
+wide <- wide %>%
+  group_by(pool) %>%
+  # get the order; this will help us later as an x axis
+  mutate(wgid=as.numeric(factor(1:n(), levels = order(genes_searched)))) %>%
+  as.data.frame()
+
+# wide$wgid <- factor(wide$wgid)
+
+tall <- melt(
+  wide, id.vars = c("file", "pool", "wgid"), 
+  variable.name = "category",
+    value.name = "count")
+```
+
+Lets look at a histogram of the total vs retained genes:
+```{r}
+(genehist <- ggplot(tall[tall$category %in% c("total", "kept"),], aes(fill=category)) + 
+  geom_density(aes(x=count), position="identity", alpha=.5 ))
+```
+
+We see the peak shift ever so slightly to the left, as we have filtered out some of the problematic genes. Now lets built a tall dataset for easier plotting.
+
+```{r, include=F}
+f <- tall[tall$category %in% c("genes_searched", "genes_searched_kept", "percent_rejected"), ]
+summary(f)
+```
+
+Lets now look at the individual assemblies; the black line shows the total genes, and the colored area shows the retained genes 
+```{r}
+
+# ggplot(wide, aes(fill=pool,
+#                  x=as.numeric(as.factor(reorder(file, genes_searched))))) + 
+#   geom_area(aes(y=genes_searched), fill="grey80") +
+#   # geom_line(aes(y=genes_searched), color="grey20", size=1) +
+#   geom_area(aes(y=genes_searched_kept)) +
+#   facet_wrap(~pool, scales = "free") +
+#   scale_fill_manual(values=c("#d27979", "#b3ff66"), guide=F) +
+#   theme_minimal()+
+#   theme(axis.text = element_text(size=15),
+#         axis.title = element_text(size=17),
+#         strip.text = element_text(size=17)) +
+#   scale_x_continuous(expand = c(0, 0)) +
+#   scale_y_log10(expand = c(0, 0)) +
+#   labs(x="Genomes", y="Count") 
+
+# plotting the percent genes that are rejected by annofilt
+(boxplots <- ggplot(f[f$category=="percent_rejected", ],
+       aes(x=pool, y=count * 100, group=pool, fill=pool)) + 
+  geom_boxplot(lwd=1, color="black", outlier.shape = 2) +
+  geom_jitter(width=.1, height=.1, alpha=.2) +
+  scale_fill_manual(values=c("#d2797966", "#b3ff6666"), guide=F) +
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(limit=c(0, 100), expand = c(0, 0)) +
+  theme_minimal()+
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=17)) +
+  labs(
+    # title="Percent genes rejected by annofilt",
+     y="Percent Genes Rejected", 
+     x="Collection"))
+```
+
+And here is a visual of how any genes are getting removed in realtion to the total (in grey).
+```{r}
+(fillplot <- ggplot(wide, 
+       aes(x=wgid, fill=pool)) +
+  facet_wrap(~pool, scales="free") +
+  geom_area(aes(y=genes_searched), fill="grey80") +
+  # geom_line(aes(y=genes_searched), color="grey20", size=1) +
+  geom_area(aes(y=genes_searched_kept)) +
+  scale_fill_manual(values=c("#d27979", "#b3ff66"), guide=F) +
+  theme_minimal()+
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=17),
+        strip.text = element_text(size=17)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  labs(x="Genomes", y="Count"))
+(fillplotlog <- ggplot(wide, 
+       aes(x=wgid, fill=pool)) +
+  facet_wrap(~pool, scales="free") +
+  geom_area(aes(y=genes_searched), fill="grey80") +
+  # geom_line(aes(y=genes_searched), color="grey20", size=1) +
+  geom_area(aes(y=genes_searched_kept)) +
+  scale_fill_manual(values=c("#d27979", "#b3ff66"), guide=F) +
+  theme_minimal()+
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=17),
+        strip.text = element_text(size=17)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_log10(expand = c(0, 0)) +
+  labs(x="Genomes", y="Count"))
+```
+
+And lets write out the plots to the file:
+```{r}
+height=4
+width=6
+dest=file.path("..", "results", "")
+pdf(file = paste0(dest, "hist.pdf"), width = width, height=height)
+genehist
+dev.off()
+
+pdf(file = paste0(dest, "box.pdf"), width = width, height=height)
+boxplots
+dev.off()
+
+pdf(file = paste0(dest, "fillplot.pdf"), width = width, height=height)
+fillplot
+dev.off()
+
+pdf(file = paste0(dest, "fillplotlog.pdf"), width = width, height=height)
+fillplotlog
+dev.off()
+```
