@@ -28,10 +28,17 @@ Pangenomes from genome assemblies can be befuddled by missassemblies of genes, e
 ```
 for gene in assembly:
    blast against pangenome database
-   if the hit passes thresholds set by user:
+   if no hits
+     if stringent:
+	   reject
+     else:
+	   retain
+   else if hit passes thresholds set by user:
      retain
    else:
      reject
+create filtered .gbk file
+create filtered .gff file
 ```
 
 
@@ -59,7 +66,8 @@ annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./a
 ```
 
 # Results files
-- `all_loci.txt`, `good_loci.txt`, `bad_loci.txt` - these are newline-delimited files containing all locus tags, those passing the user thresholds, and those failing to pass the thresholds, respectively.
+- `all_loci.txt`, `good_loci.txt`, `bad_loci.txt` - these are newline-delimited files containing all locus tags, those passing the user thresholds, and those failing to pass the thresholds, respectively
+- `nohit_loci.txt` - this newline-delimited file contains genes that failed to get any blast hits, indicating they are not in the core genome
 - `blast_cmds` - text file contatining BLAST commands used
 - `merged_results.tab` - tab-delimitted file containing all blast results before filtering
 - `filtered_hits.csv` - comma-delimitted file containing all blast results after filtering
