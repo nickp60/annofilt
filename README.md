@@ -80,22 +80,25 @@ I used a subset of the Enterobase E coli collection, where I downloaded a repres
 
 By default, annofilt checks the annotations at the end of each contig. The figure below shows the number of genes searched (2 * number of contigs) in gray, and the number of genes retained is in red.
 
-![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ents2.png)
+![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ent2.png)
 
 
 Here we show the percentage of the searched genes that annofilt retains:
 
 ![percsearchedkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ents.png)
 
-At a more granular scale, here are two instances in mauive alignmens where genes were removed because their identities were ambiguous.
+At a more granular scale, here are two instances in mauive alignmens where genes were removed because their identities were ambiguous.  We aligned 3 reference genomes to both the filtered and the unfiltered assemblies for the isolate we're interested in.
 
-![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene3.png)
-![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene2.png)
+![weird_gene3](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene3.png)
+See how the genome on top has a large gene where the gene at the end of the contig on bottom is truncated?  The 4th genome (the annofilt one) shows that this partial gene annotation has been removed.
 
+Heres another one:
+![weird_gene2](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene2.png)
+There is poor homology in that neon green area; the top genome has a syntenous region, but the gene at the end of the contig appears to be truncated.
 
-Overall, in the pangenome we generated with and without annofilt, we reduced the cloud genes by 5000, and increased the core genome by 70 genes.
+Overall, in the pangenome we generated with and without annofilt, we reduced the cloud genes by ~5000, and increased the core genome by 70 genes.
 
-![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/summary.svg)
+![summary_fig](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/summary.png)
 
 
 (This comparison also included ~150 of strains of interest to our group) 
