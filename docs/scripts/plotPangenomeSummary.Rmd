@@ -1,0 +1,88 @@
+---
+title: "Comparing pangenomes with and without annofilt "
+author: "Nick Waters"
+date: "23 March 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(tidyr)
+```
+
+We generated pangenomes of the same strains with and without filtering from annofilt, and combined the summary statistics into a text file
+
+```{r}
+dat <- read.table("../data/roary_results", col.names = c("Condition", "Category", "desc", "Genes"), sep="\t" )
+dat$Category <- factor(
+  dat$Category, 
+  levels =c("Total genes", "Core genes", "Soft core genes", "Shell genes", "Cloud genes"))
+dat$Condition <- factor(
+  dat$Condition,labels =  c("With annofilt", "Without annofilt"))
+dat$facet <- ifelse(grepl("ore|hell", dat$Category), 1, 2)
+str(dat)
+```
+
+
+```{r}
+(plotcounts <-ggplot(dat, 
+       aes(x=Category, fill=Condition, y=Genes, group=Condition)) + 
+  geom_bar(stat="identity", position="dodge", width=.7) +
+  scale_y_continuous(expand=c(0,.1))+
+  geom_hline(aes(yintercept=0), colour="#333333", linetype="solid", lwd=1)+
+  theme_minimal()+
+  theme(axis.text = element_text(size=15),
+        axis.title = element_text(size=17)) +
+   scale_fill_manual(values=c("#99ccff", "#ff6666"))+
+  facet_wrap(~facet, scales = "free") +
+  theme(axis.text.x = element_text(angle=45, hjust = 1),
+        strip.text.x = element_blank())) + 
+  labs(x="")
+```
+
+
+```{r}
+wide <- dat %>% select(-desc) %>% select(-facet) %>%  spread(Category, Genes)
+names <- wide$Condition
+diffs <- as.data.frame(t(wide[,-1]))
+colnames(diffs) <- names
+
+diffs$Category <- factor(
+  rownames(diffs), 
+  levels =c("Total genes", "Core genes", "Soft core genes", "Shell genes", "Cloud genes"))
+diffs$value <- diffs$`With annofilt` - diffs$`Without annofilt`
+diffs$facet <- ifelse(grepl("ore|hell", diffs$Category), 1, 2)
+diffs$col <- ifelse(diffs$value > 0, "1", "2")
+
+(plotdiffs <- ggplot(diffs, aes(x=Category, y=value, fill=col)) +
+    geom_bar(stat="identity", position="dodge") +
+    #scale_y_continuous(expand=c(0,.1))+
+    facet_wrap(~facet, scales="free") +
+    # scale_x_discrete(expand=c(0,0))+
+    theme_minimal()+
+    scale_fill_manual(values=c("#99ccff","#0066cc"), guide=F)+
+    geom_hline(aes(yintercept=0), colour="#333333", linetype="solid", lwd=1)+
+    theme(axis.text = element_text(size=15),
+          axis.title = element_text(size=17),
+          axis.text.x = element_text(angle=45, hjust = 1),
+          strip.text.x = element_blank()))+
+    labs(y="Gene numbers with annofilt - without", x="")
+```
+Cool, right!? annofilt increases the core genome by 73 gene, and decreases the total/shell genes by 5k.  That's a lot of noise removed!
+
+And write eout the plots
+```{r}
+height=4
+width=6
+dest=file.path("..", "results", "")
+pdf(file = paste0(dest, "summary_counts.pdf"), width = width, height=height)
+plotcounts
+dev.off()
+
+pdf(file = paste0(dest, "summary_diffs.pdf"), width = width, height=height)
+plotdiffs
+dev.off()
+```

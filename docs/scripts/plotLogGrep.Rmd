@@ -1,5 +1,7 @@
 ---
 title: "Assessing affect of annofilt on E. coli annotations"
+author: "Nick Waters"
+date: "22 March 2018"
 output: html_document
 ---
 ```{r setup, include=FALSE}

@@ -1,0 +1,11 @@
+without	Core genes	(99% <= strains <= 100%)	1736
+without	Soft core genes	(95% <= strains < 99%)	536
+without	Shell genes	(15% <= strains < 95%)	3460
+without	Cloud genes	(0% <= strains < 15%)	83155
+without	Total genes	(0% <= strains <= 100%)	88887
+with	Core genes	(99% <= strains <= 100%)	1806
+with	Soft core genes	(95% <= strains < 99%)	535
+with	Shell genes	(15% <= strains < 95%)	3406
+with	Cloud genes	(0% <= strains < 15%)	78121
+with	Total genes	(0% <= strains <= 100%)	83868
+
