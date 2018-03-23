@@ -10,7 +10,7 @@ library(ggplot2)
 library(reshape2)
 library(dplyr)
 ```
-annofilt is designed to remove dubiously annotated genes from the end of assembly contigs.  After it was run on our collection of 149 soil *E. coli* and the 1300 enteric *E. coli*.  Afterwards, the results were combined into a single file using the following hack:
+annofilt is designed to remove dubiously annotated genes from the end of assembly contigs.  After it was run on our collection of 149 soil *E. coli* and the 1193 enteric *E. coli*.  Afterwards, the results were combined into a single file using the following hack:
 
 ```{bash, eval=FALSE}
 # Make the input file from a bunch of runs
@@ -24,7 +24,7 @@ done
 
 We read in the ugly file, and make a dataframe from the relevent columns:
 ```{r}
-data <- read.table("../data/logs.logs" ,skip = 6)
+data <- read.table("../data/logs.logs")
 file <- as.character(gsub(".*/(.*?)/annofilt.log", "\\1", data[, 1]))
 contigs <- as.numeric(data[, 9])
 total <- as.numeric(data[, 11])
@@ -77,22 +77,6 @@ summary(f)
 
 Lets now look at the individual assemblies; the black line shows the total genes, and the colored area shows the retained genes 
 ```{r}
-
-# ggplot(wide, aes(fill=pool,
-#                  x=as.numeric(as.factor(reorder(file, genes_searched))))) + 
-#   geom_area(aes(y=genes_searched), fill="grey80") +
-#   # geom_line(aes(y=genes_searched), color="grey20", size=1) +
-#   geom_area(aes(y=genes_searched_kept)) +
-#   facet_wrap(~pool, scales = "free") +
-#   scale_fill_manual(values=c("#d27979", "#b3ff66"), guide=F) +
-#   theme_minimal()+
-#   theme(axis.text = element_text(size=15),
-#         axis.title = element_text(size=17),
-#         strip.text = element_text(size=17)) +
-#   scale_x_continuous(expand = c(0, 0)) +
-#   scale_y_log10(expand = c(0, 0)) +
-#   labs(x="Genomes", y="Count") 
-
 # plotting the percent genes that are rejected by annofilt
 (boxplots <- ggplot(f[f$category=="percent_rejected", ],
        aes(x=pool, y=count * 100, group=pool, fill=pool)) + 
