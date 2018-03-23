@@ -73,3 +73,29 @@ annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./a
 - `filtered_hits.csv` - comma-delimitted file containing all blast results after filtering
 - `*x*.gbk` - GenBank file containing annotations for genes passing thresholds
 - `*x*.gff` - gff3 file containing annotations for genes passing thresholds, for use with Roary
+
+
+# So what does it do to my assemblies?
+I used a subset of the Enterobase E coli collection, where I downloaded a representative from each Ackman sequence types (~1100 strains).
+
+By default, annofilt checks the annotations at the end of each contig. The figure below shows the number of genes searched (2 * number of contigs) in gray, and the number of genes retained is in red.
+
+![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ents2.png)
+
+
+Here we show the percentage of the searched genes that annofilt retains:
+
+![percsearchedkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ents.png)
+
+At a more granular scale, here are two instances in mauive alignmens where genes were removed because their identities were ambiguous.
+
+![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene3.png)
+![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/weird_gene2.png)
+
+
+Overall, in the pangenome we generated with and without annofilt, we reduced the cloud genes by 5000, and increased the core genome by 70 genes.
+
+![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/summary.svg)
+
+
+(This comparison also included ~150 of strains of interest to our group) 
