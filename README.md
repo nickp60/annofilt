@@ -16,7 +16,7 @@ prokka BA000007.2.fasta --outdir sample_prokka --cpus 4
 # we also have a mini assembly to test on (see ribSeed toy genome)
 prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli --cpus 4 ../riboSeed/manuscript_results/simulated_genome/test_consensus/final_de_fere_novo_assembly/contigs.fasta
 ```
-![annofilt](https://github.com/nickp60/annofilt/blob/master/icon/icon.svg)
+![annofilt](https://github.com/nickp60/annofilt/blob/master/docs/icon/icon.svg)
 
 # The Problem
 Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
@@ -101,4 +101,4 @@ Overall, in the pangenome we generated with and without annofilt, we reduced the
 ![summary_fig](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/summary.png)
 
 
-(This comparison also included ~150 of strains of interest to our group) 
+(This comparison also included ~150 of strains of interest to our group)
