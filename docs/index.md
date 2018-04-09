@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/nickp60/annofilt.svg?branch=master)](https://travis-ci.org/nickp60/annofilt)[![Coverage Status](https://coveralls.io/repos/github/nickp60/annofilt/badge.svg?branch=master)](https://coveralls.io/github/nickp60/annofilt?branch=master)
-![annofilt](./icon/icon.svg)
+![annofilt](../icon/icon.svg)
 
 # The Problem
 Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
@@ -63,7 +63,7 @@ I used a subset of the Enterobase E coli collection, where I downloaded a repres
 
 By default, annofilt checks the annotations at the end of each contig. The figure below shows the number of genes searched (2 * number of contigs) in gray, and the number of genes retained is in red.
 
-![searchedvkept](https://github.com/nickp60/annofilt/blob/master/docs/readme_figs/ent2.png)
+![searchedvkept](./readme_figs/ent2.png)
 
 
 Here we show the percentage of the searched genes that annofilt retains:
