@@ -1,22 +1,5 @@
 [![Build Status](https://travis-ci.org/nickp60/annofilt.svg?branch=master)](https://travis-ci.org/nickp60/annofilt)[![Coverage Status](https://coveralls.io/repos/github/nickp60/annofilt/badge.svg?branch=master)](https://coveralls.io/github/nickp60/annofilt?branch=master)
-```
-#get a subset of Complete e coli to analyze
-Rscript ../riboSeed/scripts/getCompleteGenomeSubset.R /home/nicholas/GitHub/riboSeed/manuscript_results/entropy/assembly_summary.txt ./colis/ Escherichia coli
-gunzip ./colis/genomes/*
-cd ./colis/genomes/
-# for each of them, run prokka to get annotation
-counter=0; for i in *.fna; do prokka --outdir ./${i} --prefix coli13 --compliant --genus Escherichia --species coli --cpus 4 ${i}.fna; counter=$(($counter + 1)); done
-# I got bored after 11 genomes.  thats enough for a pangenome?  right? right? why are you shaking your head
-# build a pangenome
-roary -p 4 -f 11complete_colis -e -r -v ./colis/genomes/*/*.gff
-
-# our test organism's annotation
-prokka BA000007.2.fasta --outdir sample_prokka --cpus 4
-
-# we also have a mini assembly to test on (see ribSeed toy genome)
-prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli --cpus 4 ../riboSeed/manuscript_results/simulated_genome/test_consensus/final_de_fere_novo_assembly/contigs.fasta
-```
-![annofilt](https://github.com/nickp60/annofilt/blob/master/icon/icon.svg)
+![annofilt](./icon/icon.svg)
 
 # The Problem
 Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
