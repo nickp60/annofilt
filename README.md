@@ -52,9 +52,26 @@ To verify the length of annotated genes, we compare annotation length, alignemen
 # Installation
 ```
 conda create -n annofilt -c conda-forge -c bioconda prokka roary blast
+conda activate annofilt
 ```
 
+# Quick Start
 
+Download 10 random complete genomes
+```
+get_complete_genomes --genus Escherichia --species coli -o coli_genomes -n 25
+```
+
+Annotate them all with Prokka, and then generate a pangenome with Roary
+```
+make_annofilt_pangenome --genomes coli_genomes/  --output pangenome --threads 4
+```
+
+Filter the annotations of an assembly based on this pangenome of trusted genes:
+
+```
+annofilt pangenome/pan_genome_reference.fa ./path/to/some/contigs.fasta -o annofilt_results
+```
 
 # Running
 `annofilt` has three modes:
@@ -62,7 +79,7 @@ conda create -n annofilt -c conda-forge -c bioconda prokka roary blast
 2. *--local_quick* (medium) - use Prokka's protein multifasta  of all genes when blasting; saves the step of writing the genes to disk, but jobs cant be distributed
 3. *--full* (slowest) - genes are blasted individually; this gives more control with job hanndling (future versions will hopefully work with SGE, slurm, etc.)
 
-# Quick Start
+# Quick Start, with sample data
 
 [Test data can be downloaded here](https://zenodo.org/record/1196324/files/annofilt_test_data_archive.tar.gz)
 
@@ -109,3 +126,7 @@ Overall, in the pangenome we generated with and without annofilt, we reduced the
 
 
 (This comparison also included ~150 of strains of interest to our group)
+
+
+## Notes for running with Docker
+To keep the image size rom being outrageously large, we did not include Prokka in the image.  I maintain a separate Prokka image, which can be obtained from docker hub.  So, we really only recoomend using Docker to run the main annofilt procedure, not using it to download data, run Prokka, or run Roary.
