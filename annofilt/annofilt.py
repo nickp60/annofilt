@@ -130,6 +130,10 @@ def get_args(): #pragma nocover
         help="1 = debug(), 2 = info(), 3 = warning(), " +
         "4 = error() and 5 = critical(); " +
         "default: %(default)s")
+    optional.add_argument(
+        "-h", "--help",
+        action="help", default=argparse.SUPPRESS,
+        help="Displays this help message")
 
     args = parser.parse_args()
     return args
@@ -346,7 +350,7 @@ def filter_BLAST_df(df1, df2, algo, min_evalue, min_length_frac, min_id_percent,
                 (tempdf1["identity_perc"] > min_id_percent) &
                 (tempdf1["bit_score"] == tempdf1["bit_score"].max()) &
                 (tempdf1["evalue"] < min_evalue)]
-            if subset1.empty: 
+            if subset1.empty:
                 logger.debug("No full hits for %s", gene)
                 logger.debug(tempdf1)
                 bad_loci.append(gene)
@@ -759,7 +763,7 @@ def main(args=None, logger=None):
                     nrecs, len(all_loci), len(good_loci), len(bad_loci))
         sys.stdout.write("{0}\t{1}\t{2}\t{3}\t{4}\n".format(
             nrecs, prokka_files.prefix, len(all_loci), len(good_loci), len(bad_loci)))
-        
+
     logger.debug("Done!")
 
 

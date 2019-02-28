@@ -13,7 +13,7 @@ roary -p 4 -f 11complete_colis -e -r -v ./colis/genomes/*/*.gff
 # our test organism's annotation
 prokka BA000007.2.fasta --outdir sample_prokka --cpus 4
 
-# we also have a mini assembly to test on (see ribSeed toy genome)
+# we also have a mini assembly to test on (see riboSeed toy genome)
 prokka --outdir ./assembly_sample --compliant --genus Escherichia --species coli --cpus 4 ../riboSeed/manuscript_results/simulated_genome/test_consensus/final_de_fere_novo_assembly/contigs.fasta
 ```
 ![annofilt](https://github.com/nickp60/annofilt/blob/master/docs/icon/icon.svg)
