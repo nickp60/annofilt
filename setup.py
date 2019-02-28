@@ -58,6 +58,8 @@ setup(
     entry_points={
        'console_scripts': [
            'annofilt=annofilt.annofilt:main',
+           'get_complete_genomes=annofilt.get_complete_genomes:main',
+           'make_annofilt_pangenome=annofilt.make_annofilt_pangenome:main',
        ],
     },
 )

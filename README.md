@@ -49,6 +49,13 @@ To verify the length of annotated genes, we compare annotation length, alignemen
 2. Run Roary.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%)
 3. Move the `pan_genome_reference.fa` file to a convenient location for use with annofilt.  This contains a representative nucleotide sequences for each gene in the core.
 
+# Installation
+```
+conda create -n annofilt -c conda-forge -c bioconda prokka roary blast
+```
+
+
+
 # Running
 `annofilt` has three modes:
 1. *Normal* (fastest) - check annotations at the beginning and end of contigs
