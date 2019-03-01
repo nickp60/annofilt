@@ -124,8 +124,8 @@ def main(args=None, logger=None):
                            stderr=subprocess.PIPE, check=True)
     roary_out = os.path.join(output_root, args.experiment_name)
     roary_cmd = str(
-        "roary -p {args.threads} -f {roary_out} -r " +
-        "-v {output_root}/*/*.gff 2> {output_root}/roary.log").format(**locals())
+        "roary -p {args.threads} -f {roary_out} -r -e -n " +
+        "-v {output_root}/*/*.gff >> {output_root}/roary.log 2>&1").format(**locals())
     print(roary_cmd )
     subprocess.run(roary_cmd, shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
