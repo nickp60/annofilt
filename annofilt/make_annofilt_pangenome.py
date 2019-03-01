@@ -109,6 +109,7 @@ def main(args=None, logger=None):
         logger.debug("{0}: {1}".format(k, v))
     date = str(datetime.datetime.now().strftime('%Y%m%d'))
     genomes = glob.glob(args.genomes + "*.fna")
+    logger.info("Preparing Prokka commands")
     for i,genome in enumerate(genomes):
         thisname = os.path.basename(os.path.splitext(genome)[0])
         outdir = os.path.join(output_root, os.path.basename(os.path.splitext(genome)[0]))
@@ -116,9 +117,9 @@ def main(args=None, logger=None):
             prokka_cmd = str(
                 "prokka --outdir {outdir} --prefix " +
                 "{args.experiment_name}-{i} --compliant --genus Genus " +
-                "--species species --cpus {args.threads}" +
+                "--species species --cpus {args.threads} " +
             "{genome}").format(**locals())
-            print(prokka_cmd)
+            logger.debug(prokka_cmd)
             subprocess.run(prokka_cmd, shell=sys.platform != "win32",
                            stdout=subprocess.PIPE,
                            stderr=subprocess.PIPE, check=True)
@@ -126,7 +127,8 @@ def main(args=None, logger=None):
     roary_cmd = str(
         "roary -p {args.threads} -f {roary_out} -r -e -n " +
         "-v {output_root}/*/*.gff >> {output_root}/roary.log 2>&1").format(**locals())
-    print(roary_cmd )
+    logger.info("Preparing Roary cmd")
+    logger.debug(roary_cmd )
     subprocess.run(roary_cmd, shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
