@@ -98,7 +98,6 @@ def main(args=None, logger=None):
         os.makedirs(output_root)
     else:
         sys.stderr.write("Output Directory already exists!\n")
-        sys.exit(1)
     check_exes()
     if logger is None:
         logger = sm.set_up_logging(
@@ -113,20 +112,21 @@ def main(args=None, logger=None):
     for i,genome in enumerate(genomes):
         thisname = os.path.basename(os.path.splitext(genome)[0])
         outdir = os.path.join(output_root, os.path.basename(os.path.splitext(genome)[0]))
-        prokka_cmd = str(
-            "prokka --outdir {outdir} --prefix " +
-            "{args.experiment_name}-{i} --compliant --genus Genus " +
-            "--species species --cpus {args.threads} " +
+        if not os.path.exists(outdir):
+            prokka_cmd = str(
+                "prokka --outdir {outdir} --prefix " +
+                "{args.experiment_name}-{i} --compliant --genus Genus " +
+                "--species species --cpus {args.threads}" +
             "{genome}").format(**locals())
-        print(prokka_cmd)
-        subprocess.run(prokka_cmd, shell=sys.platform != "win32",
-                       stdout=subprocess.PIPE,
-                       stderr=subprocess.PIPE, check=True)
+            print(prokka_cmd)
+            subprocess.run(prokka_cmd, shell=sys.platform != "win32",
+                           stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, check=True)
     roary_out = os.path.join(output_root, args.experiment_name)
     roary_cmd = str(
-        "roary -p {args.threads} -f {roary_out} -e -r " +
-        "-v {output_root}/*/*.gff").format(**locals())
-
+        "roary -p {args.threads} -f {roary_out} -r " +
+        "-v {output_root}/*/*.gff 2> {output_root}/roary.log").format(**locals())
+    print(roary_cmd )
     subprocess.run(roary_cmd, shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
