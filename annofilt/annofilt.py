@@ -434,7 +434,7 @@ def setup_blast_db(input_file, input_type="fasta", dbtype="prot",
         makeblastdb_exe = shutil.which("makeblastdb")
         logger.debug("makeblastdb executable: %s", makeblastdb_exe)
     makedbcmd = str("{0} -in {1} -input_type {2} -dbtype {3} " +
-                    "-out {4}").format(makeblastdb_exe,
+                    "-out {4} 2> {4}.log").format(makeblastdb_exe,
                                        input_file,
                                        input_type,
                                        dbtype,
