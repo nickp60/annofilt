@@ -53,7 +53,7 @@ class annofilt(unittest.TestCase):
         with open(newf, "r") as inf:
             for line in inf:
                 nlines = nlines + 1
-        self.assertEqual(nlines, 1521)
+        self.assertEqual(nlines, 1516)
 
     def test_BLAST_tab_to_df(self):
         self.assertEqual(
