@@ -485,9 +485,14 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
             newrec.features = []
             for idx, feat in enumerate(rec.features):
                 try:
-                    if feat.type in ["source", "misc_feature", "repeat_region", "assembly_gap"]:
+                    # if feat.type in ["source", "misc_feature",
+                    #                  "repeat_region", "assembly_gap"]:
+                    #     continue
+                    if not feat.type:
                         continue
-                    elif feat.qualifiers.get("locus_tag")[0] in approved_accessions:
+                    if  feat.type != "CDS":
+                        continue
+                    if feat.qualifiers.get("locus_tag")[0] in approved_accessions:
                         newrec.features.append(feat)
                     else:
                         logger.debug(feat.qualifiers.get("locus_tag")[0] +
