@@ -169,8 +169,8 @@ def main(args=None, logger=None):
             path=species_df.ftp_path[counter], genomes_dir=genomes_dir,
             logger=logger)
         logger.debug("    unzipping %s" % this_path)
-        # -o overwrites
-        unzip_cmd = "gunzip -o %s" % this_path
+        # -f force overwrite (on osx, -o overwrites like with `unzip`, but not linux?)
+        unzip_cmd = "gunzip -f %s" % this_path
 
         subprocess.run(unzip_cmd, shell=sys.platform != "win32",
                        stdout=subprocess.PIPE,
