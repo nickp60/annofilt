@@ -90,7 +90,11 @@ def main(args=None, logger=None):
     for k, v in sorted(vars(args).items()):
         logger.debug("{0}: {1}".format(k, v))
     genomes = glob.glob(args.genomes + "*.fna")
-    logger.info("Preparing Prokka commands")
+    if len(genomes) < 2:
+        raise ValueError("Prokka needs a minimum of 2 genomes to run! " +
+                         "check the contents of your --genomes dir.  " +
+                         "Genomes need to end in .fna")
+    logger.info("Running Prokka commands")
     for i, genome in enumerate(genomes):
         thisname = os.path.basename(os.path.splitext(genome)[0])
         outdir = os.path.join(output_root,

@@ -19,7 +19,7 @@
 ![annofilt](https://github.com/nickp60/annofilt/blob/master/docs/icon/icon.svg)
 
 # The Problem
-Pangenomes from genome assemblies can be befuddled by missassemblies of genes, expecially those truncated by contig breaks.
+Pangenomes from genome assemblies can be befuddled by missassemblies of genes. Often the repeats from  multicopy genes cause regions ttat are impossible to assemble from short reads; this results in truncated genes often being found on contig ends.
 
 # The Solution
 `annofilt` is used to filter annotations that appear to be truncated, based on BLAST comparison with a pangenome generated from closed genomes.  Briefly, the algorithm proceeds as follows:
@@ -46,13 +46,15 @@ create filtered .gff file
 To verify the length of annotated genes, we compare annotation length, alignement coverage, and evalue to a pangenme built of well-currated annotations for a given strain.  To build a pangenome for your strain of interest, do the following:
 
 1. Download as many complete genomes from RefSeq as desired (minimum of 10?, maybe?) with `get_compete_genomes``
-2. Run Roary.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%)
+2. Create pangenome with `make_annofilt_pangenome`.  This is a good time to explore their stringincy options for percentage identity (which defaults to 95%).  If you want, you can adjust the default params using the `--add_roary_args` command.
+4. Take a look at the resulting `summary_statistics.txt` file, to make sure nothing looks amiss.
 3. Move the `pan_genome_reference.fa` file to a convenient location for use with annofilt.  This contains a representative nucleotide sequences for each gene in the core.
 
 # Installation
 ```
 conda create -n annofilt -c conda-forge -c bioconda prokka roary blast
 conda activate annofilt
+pip install annofilt
 ```
 
 # Quick Start
@@ -100,7 +102,7 @@ annofilt annofilt_test_data_archive/11complete_colis/pan_genome_reference.fa ./a
 
 
 # So what does it do to my assemblies?
-I used a subset of the Enterobase E coli collection, where I downloaded a representative from each Ackman sequence types (~1100 strains).
+I used a subset of the Enterobase E coli collection, where I downloaded a representative from each Acktman sequence types (~1100 strains).
 
 By default, annofilt checks the annotations at the end of each contig. The figure below shows the number of genes searched (2 * number of contigs) in gray, and the number of genes retained is in red.
 
@@ -129,4 +131,4 @@ Overall, in the pangenome we generated with and without annofilt, we reduced the
 
 
 ## Notes for running with Docker
-To keep the image size rom being outrageously large, we did not include Prokka in the image.  I maintain a separate Prokka image, which can be obtained from docker hub.  So, we really only recoomend using Docker to run the main annofilt procedure, not using it to download data, run Prokka, or run Roary.
+To keep the image size rom being outrageously large, we did not include Prokka in the image.  I maintain a separate Prokka image, which can be obtained from docker hub.  So, we really only recoomend using Docker to run the main annofilt procedure, not using it to run `get_complete_genomes` or `make_annofilt_pangenome`. .
