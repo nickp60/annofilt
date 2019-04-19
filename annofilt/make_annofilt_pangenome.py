@@ -7,27 +7,15 @@
 import os
 import sys
 import glob
-import re
-import datetime
 import subprocess
 import argparse
-import logging
 import shutil
-import pandas as pd
-import multiprocessing
-import copy
-import urllib.request
 
 
 from . import shared_methods as sm
 
-from argparse import Namespace
-from Bio import SeqIO
-from Bio.SeqRecord import SeqRecord
-from Bio.Seq import Seq
 
-
-def get_args(): #pragma nocover
+def get_args():  # pragma nocover
     parser = argparse.ArgumentParser(
         description="Given a directory of genomes, create a " +
         "pangenome using prokka and Roary from complete genomes " +
@@ -59,7 +47,6 @@ def get_args(): #pragma nocover
         dest='experiment_name', action="store",
         default="annofilt",
         help="name default: %(default)s")
-
     optional.add_argument(
         "-v",
         "--verbosity",
@@ -72,7 +59,6 @@ def get_args(): #pragma nocover
         "-h", "--help",
         action="help", default=argparse.SUPPRESS,
         help="Displays this help message")
-
     args = parser.parse_args()
     return args
 
@@ -81,11 +67,6 @@ def check_exes():
     for exe in ["prokka", "roary"]:
         if shutil.which(exe) is None:
             raise ValueError("%s executable not found" % exe)
-
-
-
-def run_roary():
-    pass
 
 
 def main(args=None, logger=None):
@@ -107,18 +88,18 @@ def main(args=None, logger=None):
     logger.debug("All settings used:")
     for k, v in sorted(vars(args).items()):
         logger.debug("{0}: {1}".format(k, v))
-    date = str(datetime.datetime.now().strftime('%Y%m%d'))
     genomes = glob.glob(args.genomes + "*.fna")
     logger.info("Preparing Prokka commands")
-    for i,genome in enumerate(genomes):
+    for i, genome in enumerate(genomes):
         thisname = os.path.basename(os.path.splitext(genome)[0])
-        outdir = os.path.join(output_root, os.path.basename(os.path.splitext(genome)[0]))
+        outdir = os.path.join(output_root,
+                              os.path.basename(os.path.splitext(genome)[0]))
         if not os.path.exists(outdir):
             prokka_cmd = str(
                 "prokka --outdir {outdir} --prefix " +
                 "{args.experiment_name}-{i} --compliant --genus Genus " +
                 "--species species --cpus {args.threads} " +
-            "{genome}").format(**locals())
+                "{genome}").format(**locals())
             logger.debug(prokka_cmd)
             subprocess.run(prokka_cmd, shell=sys.platform != "win32",
                            stdout=subprocess.PIPE,
@@ -126,14 +107,14 @@ def main(args=None, logger=None):
     roary_out = os.path.join(output_root, args.experiment_name)
     roary_cmd = str(
         "roary -p {args.threads} -f {roary_out} -r -e -n " +
-        "-v {output_root}/*/*.gff >> {output_root}/roary.log 2>&1").format(**locals())
+        "-v {output_root}/*/*.gff >> {output_root}/roary.log 2>&1").format(
+            **locals())
     logger.info("Preparing Roary cmd")
-    logger.debug(roary_cmd )
+    logger.debug(roary_cmd)
     subprocess.run(roary_cmd, shell=sys.platform != "win32",
                    stdout=subprocess.PIPE,
                    stderr=subprocess.PIPE, check=True)
     logger.debug("Done!")
-
 
 
 if __name__ == "__main__":
