@@ -30,10 +30,11 @@ def get_args():  # pragma nocover
         help="output dir", required=True)
     optional = parser.add_argument_group('optional arguments')
     optional.add_argument(
-        "--assembly_summary",
-        dest="assembly_summary",
-        help="Path to assembly_summary.txt from NCBI; if not present, " +
-        "will be downloaded")
+        "--add_roary_args",
+        default="-e -n",
+        help="Args to pass on to Roary for pangenome construction. " +
+        "Default args to give to roary. " +
+        "-e -n means a fast core multifast is generated with MAFFT")
     optional.add_argument(
         "-t",
         "--threads",
@@ -106,7 +107,7 @@ def main(args=None, logger=None):
                            stderr=subprocess.PIPE, check=True)
     roary_out = os.path.join(output_root, args.experiment_name)
     roary_cmd = str(
-        "roary -p {args.threads} -f {roary_out} -r -e -n " +
+        "roary -p {args.threads} -f {roary_out} {args.add_roary_args} " +
         "-v {output_root}/*/*.gff >> {output_root}/roary.log 2>&1").format(
             **locals())
     logger.info("Preparing Roary cmd")

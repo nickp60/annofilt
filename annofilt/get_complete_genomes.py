@@ -130,6 +130,12 @@ def main(args=None, logger=None):
     # get args
     if args is None:
         args = get_args()
+    if args.max_strains is None:
+        args.max_strains = args.number_of_strains + 10
+    else:
+        if args.max_strains < args.number_of_strains:
+            raise ValueError("Maximum number of strains to try cannot be " +
+                             "less than the number of genomes")
     output_root = os.path.abspath(os.path.expanduser(args.output))
     if not os.path.isdir(output_root):
         sys.stderr.write("creating output directory %s\n" % output_root)
@@ -171,6 +177,7 @@ def main(args=None, logger=None):
         logger.debug("    unzipping %s" % this_path)
         # -f force overwrite (on osx, -o overwrites like with `unzip`, but not linux?)
         unzip_cmd = "gunzip -f %s" % this_path
+        this_path = this_path.replace(".gz", "")
 
         subprocess.run(unzip_cmd, shell=sys.platform != "win32",
                        stdout=subprocess.PIPE,
