@@ -524,6 +524,8 @@ def make_new_genbank(genbank, new_genbank, approved_accessions, logger):
 
 def make_filter_gff_cmd(gff, baddies, newgff):
     """ given a gff file and a file of unwanted locus tags, run inverse grep
+
+    Note 2019-04-25 this is a ticking time bomb
     """
     # -f means get pattern from file
     # -v means return inverse match
