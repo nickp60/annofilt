@@ -14,6 +14,7 @@ import shutil
 import pandas as pd
 import multiprocessing
 import copy
+from . import __version__
 from . import shared_methods as sm
 
 from argparse import Namespace
@@ -133,6 +134,10 @@ def get_args():  # pragma nocover
         "-h", "--help",
         action="help", default=argparse.SUPPRESS,
         help="Displays this help message")
+    optional.add_argument(
+        '--version',
+        action='version',
+        version='%(prog)s ' + __version__)
 
     args = parser.parse_args()
     return args
@@ -540,7 +545,13 @@ def get_genewise_blast_cmds(output_root, prokka_files, args,
             logger.debug("found %d features on %s", nfeats, rec.id)
             FIRST = True
             for idx, feat in enumerate(rec.features):
-                if feat.type in ["source", "repeat_region", "assembly_gap"]:
+                # note we dont disciminate against misc_feature because some
+                # can technically have locus tags, and are therefor fair
+                # game for downstreaem analysis
+                # If a weird feature comes up that doesnt have a locus
+                # tag, it is logged and ignored.
+                if feat.type in ["source", "repeat_region",
+                                 "assembly_gap"]:
                     continue
                 if (args.full or FIRST or idx == nfeats - 1):
                     FIRST = False
@@ -555,6 +566,7 @@ def get_genewise_blast_cmds(output_root, prokka_files, args,
                     except TypeError:
                         logger.warning("Could not get a locus tag for the " +
                                        "following feature: %s", feat)
+                        continue
                     genepath = os.path.join(
                         genes_dirpath, gene.id + ext)
                     SeqIO.write(gene, genepath, "fasta")
