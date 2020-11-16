@@ -30,7 +30,11 @@ if sys.version_info <= (3, 0):
 ## parse requirements file
 install_reqs = parse_requirements("requirements.txt",
                                   session=False)
-requirements = [str(ir.req) for ir in install_reqs]
+# see https://stackoverflow.com/questions/62114945
+try:
+    requirements = [str(ir.req) for ir in install_reqs]
+except:
+    requirements = [str(ir.requirement) for ir in install_reqs]
 setup(
     name='annofilt',
     version=verstr,
